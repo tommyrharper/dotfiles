@@ -17,6 +17,21 @@ if [ "${1:-}" = "--basic" ]; then
   REBUILD_SUFFIX=" --basic"
 fi
 
+if [ "$BASIC" = true ]; then
+  echo "    WARNING: --basic switches this Mac to the \"basic\" darwinConfiguration,"
+  echo "    which does not include personalCasks (slack, discord, spotify, notion, figma)."
+  echo "    Homebrew cleanup is set to \"zap\", so if this machine currently has those"
+  echo "    casks installed under the personal host, they will be uninstalled."
+  read -r -p "    Continue with --basic? [y/N] " REPLY
+  case "$REPLY" in
+    y|Y|yes|YES|Yes) ;;
+    *)
+      echo "    Aborted."
+      exit 1
+      ;;
+  esac
+fi
+
 echo "==> Step 1: Determinate Nix"
 if command -v nix >/dev/null 2>&1; then
   echo "    nix already installed, skipping"
@@ -78,6 +93,7 @@ fi
 sudo "$NIX_BIN" run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
   switch --flake ~/.dotfiles#"$FLAKE_HOST_LABEL"
 # If this still fails with "nix: command not found", open a new terminal
-# (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh$REBUILD_SUFFIX.
+# (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh
+# (include --basic again if you passed it originally).
 
 echo "==> Done. Use ./rebuild.sh$REBUILD_SUFFIX for future changes."
