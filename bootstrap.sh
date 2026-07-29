@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
+# Usage: ./bootstrap.sh [--basic]
 # Takes a fresh Mac from nothing to a built nix-darwin config.
-# Run this once. After it finishes, use ./rebuild.sh for every later change.
+# --basic targets the "basic" host (dev tooling only, no personal casks)
+# instead of the personal hostLabel - handy for provisioning a second,
+# non-personal machine (e.g. a server).
+# Run this once. After it finishes, use ./rebuild.sh (or ./rebuild.sh --basic)
+# for every later change.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+BASIC=false
+REBUILD_SUFFIX=""
+if [ "${1:-}" = "--basic" ]; then
+  BASIC=true
+  REBUILD_SUFFIX=" --basic"
+fi
 
 echo "==> Step 1: Determinate Nix"
 if command -v nix >/dev/null 2>&1; then
@@ -53,15 +65,19 @@ echo "==> Step 4: first darwin-rebuild switch (pinned to nix-darwin-26.05)"
 # freshly installed `nix` would not be found under sudo even though it's
 # on PATH here. Resolve the absolute path first and invoke that instead.
 NIX_BIN="$(command -v nix)"
-FLAKE_HOST_LABEL="$(sed -nE 's/^[[:space:]]*hostLabel = "([^"]+)";.*/\1/p' "$DIR/flake.nix" | head -n1)"
-if [ -z "$FLAKE_HOST_LABEL" ]; then
-  echo "    Could not find the single \"hostLabel = \" line in flake.nix."
-  echo "    Edit flake.nix yourself before continuing."
-  exit 1
+if [ "$BASIC" = true ]; then
+  FLAKE_HOST_LABEL="basic"
+else
+  FLAKE_HOST_LABEL="$(sed -nE 's/^[[:space:]]*hostLabel = "([^"]+)";.*/\1/p' "$DIR/flake.nix" | head -n1)"
+  if [ -z "$FLAKE_HOST_LABEL" ]; then
+    echo "    Could not find the single \"hostLabel = \" line in flake.nix."
+    echo "    Edit flake.nix yourself before continuing."
+    exit 1
+  fi
 fi
 sudo "$NIX_BIN" run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
   switch --flake ~/.dotfiles#"$FLAKE_HOST_LABEL"
 # If this still fails with "nix: command not found", open a new terminal
-# (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh.
+# (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh$REBUILD_SUFFIX.
 
-echo "==> Done. Use ./rebuild.sh for future changes."
+echo "==> Done. Use ./rebuild.sh$REBUILD_SUFFIX for future changes."

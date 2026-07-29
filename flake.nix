@@ -23,10 +23,9 @@
       # rebuild.sh and bootstrap.sh read this value back out of flake.nix,
       # so it only needs to be changed here.
       hostLabel = "mac";
-    in
-    {
-      darwinConfigurations.${hostLabel} = nix-darwin.lib.darwinSystem {
-        specialArgs = { inherit user; };
+
+      mkHost = { includePersonalCasks }: nix-darwin.lib.darwinSystem {
+        specialArgs = { inherit user includePersonalCasks; };
         modules = [
           ./configuration.nix
           nix-homebrew.darwinModules.nix-homebrew
@@ -39,5 +38,14 @@
           }
         ];
       };
+    in
+    {
+      darwinConfigurations.${hostLabel} = mkHost { includePersonalCasks = true; };
+
+      # Same machine setup, minus this Mac's personal GUI apps - for a second
+      # Mac (e.g. a server) that should only get dev tooling. Fixed name
+      # ("basic"), not affected by renaming hostLabel above - ./bootstrap.sh
+      # and ./rebuild.sh --basic both target it directly.
+      darwinConfigurations."basic" = mkHost { includePersonalCasks = false; };
     };
 }

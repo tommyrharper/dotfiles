@@ -4,6 +4,8 @@ Deliberate decisions in this repo - do NOT silently revert them:
 
 - `homebrew.onActivation.cleanup = "zap"` in `configuration.nix` is intentional. It forces the good habit of declaring every Homebrew package in the Nix config instead of installing things ad-hoc, which keeps the machine reproducible. Do not soften it to `uninstall` or `none`. Users are warned about its effect in README.md; this note is for anyone tempted to change the setting itself.
 - Never commit `.no-mistakes/` validation evidence to this public repo. `.no-mistakes/` is gitignored; if a validation pipeline stages evidence into a branch, drop it before merging.
+- `configuration.nix` splits Homebrew casks into `basicCasks` (dev tooling, reusable on any future machine) and `personalCasks` (this Mac's GUI apps), gated by the `includePersonalCasks` module argument (required, no default - nix-darwin doesn't honor plain Nix argument defaults for custom module args, so every host's `specialArgs` in `flake.nix` must set it explicitly). Keep new personal-only tooling behind that flag rather than hardcoding it into the shared `casks` list.
+- `flake.nix`'s `darwinConfigurations."basic"` host (fixed name, independent of the renamable `hostLabel`) sets `includePersonalCasks = false` and is the actual way to build/switch without personal apps. `bootstrap.sh`/`rebuild.sh` take a `--basic` flag to target it - deliberately a flag on the existing scripts, not separate `*-basic.sh` scripts, to stay consistent with the single-script-per-purpose + `hostLabel` pattern already established for the personal host.
 
 ## Maintaining this file
 
