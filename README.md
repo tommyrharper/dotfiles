@@ -79,6 +79,21 @@ Edit the config files in place, then apply:
 That's it.
 No separate build-and-copy step.
 
+## Server profile (headless Linux)
+
+There's a second, much smaller profile for a headless Linux box (a VPS, say, running a website) - just the home-manager layer: CLI packages (ripgrep, fd, fzf, jq, lazygit, Neovim), zsh, git, starship, and the shared agent configs. No Homebrew, no casks, no macOS `system.defaults` - those live only in `configuration.nix` and the `mac` darwin host, so they're never pulled in here.
+
+```sh
+git clone https://github.com/kunchenguid/dotfiles.git
+cd dotfiles
+./bootstrap-server.sh
+```
+
+`bootstrap-server.sh` mirrors `bootstrap.sh`: installs Determinate Nix, symlinks the repo to `~/.dotfiles`, checks the `user` line in `flake.nix`, then runs the first `home-manager switch --flake ~/.dotfiles#server` (no `sudo`, no Homebrew).
+After that, use `./rebuild-server.sh` for later changes, the same way `rebuild.sh` works for the `mac` host.
+
+The `homeConfigurations.server` output in `flake.nix` targets `x86_64-linux` by default, since that's what most VPS providers hand out - change that one line for an arm64 server.
+
 ## Make it yours
 
 This repo is mine.
@@ -123,11 +138,12 @@ If you don't use it, just remove it from `brews` in your copy.
 ## Repo tour
 
 - `flake.nix` - the entry point.
-  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew, and declares the `mac` machine.
-- `configuration.nix` - system-level config: macOS defaults, Homebrew.
+  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew, and declares the `mac` machine plus the headless `server` profile.
+- `configuration.nix` - system-level config for the `mac` host only: macOS defaults, Homebrew.
 - `home.nix` - user-level config: shell, packages, prompt, and the symlinks described below.
-- `rebuild.sh` - re-applies the config after the first switch.
-  Run this every time you make a change.
+  Shared between the `mac` and `server` hosts, so it never grows Homebrew or macOS-only settings.
+- `rebuild.sh` / `rebuild-server.sh` - re-apply the config after the first switch, for the `mac` and `server` hosts respectively.
+  Run the matching one every time you make a change.
 - `home/` - the actual config files that get symlinked into place (Neovim, WezTerm, herdr, Claude settings, the shared `AGENTS.md`).
 
 ## How the symlinks work

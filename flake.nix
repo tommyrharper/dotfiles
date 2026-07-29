@@ -35,5 +35,18 @@
           }
         ];
       };
+
+      # Headless Linux profile: just the home-manager layer (shell, CLI
+      # packages, git, starship, editor/agent configs) via standalone
+      # home-manager. No nix-darwin, no Homebrew, no macOS system.defaults -
+      # those only make sense on a Mac, so they're deliberately absent here
+      # rather than ported over.
+      homeConfigurations."server" = home-manager.lib.homeManagerConfiguration {
+        # Most VPS providers hand out x86_64 boxes; change this one line for
+        # an arm64 server, same as the Intel/Apple Silicon note for "mac".
+        pkgs = nixpkgs.legacyPackages."x86_64-linux";
+        extraSpecialArgs = { inherit user; };
+        modules = [ ./home.nix ];
+      };
     };
 }
