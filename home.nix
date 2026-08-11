@@ -24,6 +24,9 @@ in
   fonts.fontconfig.enable = true;
   home.sessionVariables.EDITOR = "nvim";
   home.sessionVariables.CLICOLOR = "1";
+  # nix-darwin's generated /etc/zprofile never calls path_helper, so MacTeX's
+  # /etc/paths.d entry is silently ignored - add its bin dir explicitly.
+  home.sessionPath = [ "/Library/TeX/texbin" ];
 
   programs.zsh = {
     enable = true;

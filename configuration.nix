@@ -91,6 +91,7 @@ in
     onActivation.autoUpdate = true;
     onActivation.extraFlags = [ "--force" ];
     brews = basicBrews ++ lib.optionals usePersonalSetup personalBrews;
-    casks = basicCasks ++ lib.optionals usePersonalSetup personalCasks;
+    casks = basicCasks ++ lib.optionals usePersonalSetup personalCasks
+      ++ [ (if usePersonalSetup then "mactex" else "mactex-no-gui") ];
   };
 }
