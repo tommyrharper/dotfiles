@@ -29,6 +29,12 @@
       # false installs dev tooling only (e.g. for a server), with the
       # minimal TeX Live scheme (just pdflatex/xelatex).
       usePersonalSetup = true;
+      # Ubuntu (or any non-NixOS Linux) has no nix-darwin equivalent, so it's
+      # managed by standalone home-manager instead - no root, no system
+      # config. bootstrap.sh/rebuild.sh pick the right attr for the machine's
+      # `uname -m` from this list, so both common server architectures work
+      # without hardcoding one.
+      linuxSystems = [ "x86_64-linux" "aarch64-linux" ];
     in
     {
       darwinConfigurations.${hostLabel} = nix-darwin.lib.darwinSystem {
@@ -46,5 +52,14 @@
           }
         ];
       };
+
+      homeConfigurations = builtins.listToAttrs (map (system: {
+        name = "${user}@${system}";
+        value = home-manager.lib.homeManagerConfiguration {
+          pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+          extraSpecialArgs = { inherit user usePersonalSetup; };
+          modules = [ ./home.nix ];
+        };
+      }) linuxSystems);
     };
 }
