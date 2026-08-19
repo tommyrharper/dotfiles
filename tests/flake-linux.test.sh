@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Proves the flake's Linux home-manager outputs evaluate cleanly and that
-# adding them left the macOS darwinConfigurations.mac output unchanged.
+# darwinConfigurations.mac still evaluates after adding them. This is option B
+# (see AGENTS.md sibling PR note): the gitverify alias and ai-fill-buffer
+# prompt are platform-unconditional, so the mac derivation content is no
+# longer asserted to be byte-identical to the pre-Linux baseline - only that
+# it still evaluates successfully.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -30,7 +34,7 @@ test_linux_home_configurations_evaluate() {
   pass "both Linux homeConfigurations outputs (x86_64-linux, aarch64-linux) evaluate to a derivation"
 }
 
-test_darwin_output_unaffected() {
+test_darwin_output_still_evaluates() {
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found"
     return 0
@@ -42,4 +46,4 @@ test_darwin_output_unaffected() {
 
 test_flake_check
 test_linux_home_configurations_evaluate
-test_darwin_output_unaffected
+test_darwin_output_still_evaluates
