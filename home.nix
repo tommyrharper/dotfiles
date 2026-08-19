@@ -1,4 +1,4 @@
-{ config, pkgs, user, usePersonalSetup, ... }:
+{ config, lib, pkgs, user, usePersonalSetup, ... }:
 
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
@@ -6,7 +6,7 @@ in
 
 {
   home.username = user;
-  home.homeDirectory = "/Users/${user}";
+  home.homeDirectory = if pkgs.stdenv.isDarwin then "/Users/${user}" else "/home/${user}";
   home.stateVersion = "24.11";
   home.packages = with pkgs; [
     # cli i use constantly
@@ -26,6 +26,21 @@ in
     # what MacTeX used to provide; minimal scheme (just pdflatex/xelatex) on
     # non-personal machines (e.g. a server).
     (if usePersonalSetup then texlive.combined.scheme-full else texlive.combined.scheme-basic)
+  ] ++ lib.optionals pkgs.stdenv.isLinux [
+    # macOS gets these from configuration.nix's basicBrews/basicCasks via
+    # Homebrew; Linux has no Homebrew, so install the nixpkgs equivalents
+    # directly. Not ported: herdr (not in this flake's pinned nixpkgs
+    # revision, only in newer nixpkgs - needs a decision: bump the pin or
+    # wait), colima (a macOS-only Docker VM shim - native Linux talks to a
+    # real Docker daemon directly), thefuck (no nixpkgs package as of
+    # writing - needs a decision if it's wanted here), wezterm and
+    # opensuperwhisper (GUI apps, out of scope for a headless server).
+    skills
+    btop
+    pi-coding-agent
+    mosh
+    claude-code
+    codex
   ];
   fonts.fontconfig.enable = true;
   home.sessionVariables.EDITOR = "nvim";
@@ -42,7 +57,7 @@ in
       # Replace the current input line with an AI-generated one, no execution.
       ai-fill-buffer() {
         [[ -z $BUFFER ]] && return
-        local sys="Output ONLY the raw zsh command for macOS that accomplishes the task below. No explanation, no markdown, no code fences, no commentary - just the command, ready to run as-is."
+        local sys="Output ONLY the raw zsh command ${if pkgs.stdenv.isDarwin then "for macOS " else ""}that accomplishes the task below. No explanation, no markdown, no code fences, no commentary - just the command, ready to run as-is."
         BUFFER=$(claude -p --tools="" --append-system-prompt "$sys" "$BUFFER" 2>/dev/null | sed -e '/^```/d' -e '/^[[:space:]]*$/d')
         CURSOR=$#BUFFER
       }
@@ -58,7 +73,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex --full-auto";
       cpath = "echo -n `pwd`|pbcopy";
-      gitverify = "ssh-add /Users/${user}/.ssh/id_rsa";
+      gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
       disablesleep = "sudo pmset -a disablesleep 1";
       enablesleep = "sudo pmset -a disablesleep 0";
 

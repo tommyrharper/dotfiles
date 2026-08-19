@@ -4,6 +4,7 @@ Watch the walkthrough: https://youtu.be/5N-okeDdIuI
 
 My personal Mac setup, managed with nix-darwin and home-manager.
 One repo, one command, and a fresh Mac ends up configured the same way every time.
+A second, Linux-only path manages just the user-level half (shell, packages, dotfiles) with standalone home-manager on a plain Ubuntu 22.04 machine - see "Ubuntu setup" below.
 
 ## Contributing / Using This Repo
 
@@ -13,7 +14,7 @@ If you find a bug, please open a GitHub Issue using the bug report template.
 
 ## What you get
 
-Running the switch builds:
+Running the switch builds, on macOS:
 
 - System settings (dark mode, key repeat, dock, Finder, trackpad)
 - Homebrew apps (casks and CLI tools)
@@ -24,11 +25,14 @@ Running the switch builds:
 - Agent configs (Claude, Codex, opencode all share one AGENTS.md)
 - Optional Pi theme and local extensions, generic UI settings and model overrides, plus two deliberately pinned third-party Pi packages
 
+On Ubuntu, the user-level half of that list: Nix user packages, shell, agent configs, and Pi extras. No system settings, no Homebrew - see "Ubuntu setup" below.
+
 ## Prerequisites
 
 - Apple Silicon Mac, by default.
 - Intel Mac: change one line.
   In `configuration.nix`, set `nixpkgs.hostPlatform = "x86_64-darwin";` (the comment right there tells you the same thing).
+- Ubuntu 22.04 LTS (x86_64 or aarch64), not NixOS: see "Ubuntu setup" below - this is a separate, Linux-only path.
 
 ## Fresh-machine setup
 
@@ -70,6 +74,41 @@ nix build .#darwinConfigurations.mac.system --dry-run
 ```
 
 If you renamed the host label in "Make it yours", substitute your label for `mac` in these commands.
+
+## Ubuntu setup
+
+Ubuntu 22.04 isn't NixOS, so there's no `nix-darwin` equivalent for it, and no root-owned system config or Homebrew here. Instead, a standalone `home-manager` output manages just the user-level half: shell, packages, dotfiles. Ubuntu itself, system settings, and anything requiring root stay outside Nix's control.
+
+From a bare clone of this repo on a fresh Ubuntu 22.04 machine:
+
+```sh
+git clone https://github.com/kunchenguid/dotfiles.git
+cd dotfiles
+./bootstrap.sh
+```
+
+`bootstrap.sh` detects it's running on Linux (`uname -s`) and takes a different path from step 4 onward:
+
+1. Installs Determinate Nix, if it isn't already installed (same installer as macOS).
+2. Symlinks this repo to `~/.dotfiles`.
+3. Checks the `user` configured in `flake.nix` against your actual Linux username, and offers to fix it for you if they differ.
+4. Maps your machine's architecture (`uname -m`) onto `x86_64-linux` or `aarch64-linux` - whichever `flake.nix`'s `homeConfigurations` output has for it.
+5. Runs the first `home-manager switch --flake ~/.dotfiles#<user>@<system>`. No `sudo` needed: standalone home-manager only ever touches your own home directory.
+
+After that, `home-manager` exists and you're on the normal workflow:
+
+```sh
+./rebuild.sh
+```
+
+`rebuild.sh` re-detects the OS and architecture each time, so both scripts work unmodified on either machine.
+
+### Validate without applying
+
+```sh
+nix flake check --no-build
+nix eval .#homeConfigurations.\"<user>@<system>\".activationPackage.drvPath
+```
 
 ## Daily use
 
@@ -122,7 +161,7 @@ With it, the first switch moves each conflicting file to `<name>.before-home-man
 It's a real public Homebrew formula (`brew info herdr` finds it in homebrew-core, no tap needed), so it will install fine.
 If you don't use it, just remove it from `basicBrews` in your copy.
 
-**Personal vs. basic brews and casks:** `configuration.nix` splits both `brews` and `casks` into `basicBrews`/`basicCasks` (dev tooling wanted on any machine: herdr, thefuck, skills, wezterm, claude-code, codex) and `personalBrews`/`personalCasks` (this Mac's own toolchain and GUI apps: Slack, Discord, Notion, Figma, a smart-contract toolchain, a Python/Postgres toolchain, and more). One toggle controls both: flip `usePersonalSetup` in `flake.nix` to `false` for dev tooling only - handy for a second, non-personal machine (e.g. a server). Still macOS-only.
+**Personal vs. basic brews and casks:** `configuration.nix` splits both `brews` and `casks` into `basicBrews`/`basicCasks` (dev tooling wanted on any machine: herdr, thefuck, skills, wezterm, claude-code, codex) and `personalBrews`/`personalCasks` (this Mac's own toolchain and GUI apps: Slack, Discord, Notion, Figma, a smart-contract toolchain, a Python/Postgres toolchain, and more). One toggle controls both: flip `usePersonalSetup` in `flake.nix` to `false` for dev tooling only - handy for a second, non-personal machine (e.g. a server). This split, and Homebrew itself, are macOS-only - there's no `usePersonalSetup` toggle on the Ubuntu path. Instead, `home.nix` installs nixpkgs equivalents of the CLI-relevant `basicBrews`/`basicCasks` entries directly in `home.packages` whenever `pkgs.stdenv.isLinux`: `skills`, `btop`, `pi-coding-agent`, `mosh`, `claude-code`, `codex`. Not ported: `herdr` (not in this flake's pinned nixpkgs revision yet), `colima` (a macOS-only Docker VM shim - native Linux talks to a real Docker daemon directly), `thefuck` (no nixpkgs package), `wezterm` and `opensuperwhisper` (GUI apps, out of scope for a headless server).
 
 **Heads-up:**
 
@@ -134,11 +173,11 @@ If you don't use it, just remove it from `basicBrews` in your copy.
 ## Repo tour
 
 - `flake.nix` - the entry point.
-  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew, and declares the `hostLabel` machine; `usePersonalSetup` selects its brews/casks profile.
-- `configuration.nix` - system-level config: macOS defaults, Homebrew.
-- `home.nix` - user-level config: shell, packages, prompt, and the symlinks described below.
-- `rebuild.sh` - re-applies the config after the first switch.
-  Run this every time you make a change.
+  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`; `usePersonalSetup` selects its brews/casks profile. Separately declares `homeConfigurations` (`<user>@x86_64-linux`, `<user>@aarch64-linux`) built with plain nixpkgs and standalone home-manager, no nix-darwin or Homebrew, for the Ubuntu path.
+- `configuration.nix` - system-level config for the macOS output only: macOS defaults, Homebrew.
+- `home.nix` - user-level config shared by both platforms: shell, packages, prompt, and the symlinks described below. Branches on `pkgs.stdenv.isDarwin`/`isLinux` only where the two differ (home directory, Linux-only CLI packages).
+- `bootstrap.sh` / `rebuild.sh` - detect the OS (`uname -s`) and branch: `darwin-rebuild` on macOS, `home-manager switch` (no `sudo`) on Linux.
+  Run `rebuild.sh` every time you make a change, on either platform.
 - `home/` - the actual config files that get symlinked into place; the sections below explain the shared symlink model and Pi's narrower selective setup.
 
 ## How the symlinks work
