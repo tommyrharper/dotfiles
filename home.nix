@@ -57,7 +57,7 @@ in
       # Replace the current input line with an AI-generated one, no execution.
       ai-fill-buffer() {
         [[ -z $BUFFER ]] && return
-        local sys="Output ONLY the raw zsh command that accomplishes the task below. No explanation, no markdown, no code fences, no commentary - just the command, ready to run as-is."
+        local sys="Output ONLY the raw zsh command ${if pkgs.stdenv.isDarwin then "for macOS " else ""}that accomplishes the task below. No explanation, no markdown, no code fences, no commentary - just the command, ready to run as-is."
         BUFFER=$(claude -p --tools="" --append-system-prompt "$sys" "$BUFFER" 2>/dev/null | sed -e '/^```/d' -e '/^[[:space:]]*$/d')
         CURSOR=$#BUFFER
       }
@@ -73,7 +73,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex --full-auto";
       cpath = "echo -n `pwd`|pbcopy";
-      gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
+      gitverify = "ssh-add ${if pkgs.stdenv.isDarwin then "/Users/${user}" else "/home/${user}"}/.ssh/id_rsa";
       disablesleep = "sudo pmset -a disablesleep 1";
       enablesleep = "sudo pmset -a disablesleep 0";
 
