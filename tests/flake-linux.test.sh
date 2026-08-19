@@ -6,6 +6,11 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# Baseline drvPath for darwinConfigurations.mac.system, captured before the
+# Linux support changes. Must stay byte-identical - any diff means the shared
+# home.nix changed macOS's evaluated output.
+DARWIN_BASELINE_DRVPATH="/nix/store/ij603ippz2sn5lzw8fhg026icrrcgk78-darwin-system-26.05.adda04f.drv"
+
 test_flake_check() {
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found"
@@ -31,13 +36,16 @@ test_linux_home_configurations_evaluate() {
 }
 
 test_darwin_output_unaffected() {
+  local drv
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found"
     return 0
   fi
-  nix eval --raw "$ROOT#darwinConfigurations.mac.system.drvPath" >/dev/null 2>&1 \
+  drv=$(nix eval --raw "$ROOT#darwinConfigurations.mac.system.drvPath" 2>/dev/null) \
     || fail "darwinConfigurations.mac stopped evaluating"
-  pass "darwinConfigurations.mac still evaluates after adding the Linux outputs"
+  [ "$drv" = "$DARWIN_BASELINE_DRVPATH" ] \
+    || fail "darwinConfigurations.mac.system.drvPath changed: expected $DARWIN_BASELINE_DRVPATH, got $drv"
+  pass "darwinConfigurations.mac.system.drvPath is byte-identical to the pre-Linux baseline"
 }
 
 test_flake_check

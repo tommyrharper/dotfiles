@@ -73,7 +73,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex --full-auto";
       cpath = "echo -n `pwd`|pbcopy";
-      gitverify = "ssh-add ${if pkgs.stdenv.isDarwin then "/Users/${user}" else "/home/${user}"}/.ssh/id_rsa";
+      gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
       disablesleep = "sudo pmset -a disablesleep 1";
       enablesleep = "sudo pmset -a disablesleep 0";
 
