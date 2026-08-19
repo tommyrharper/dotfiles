@@ -9,7 +9,7 @@ set -u
 # Baseline drvPath for darwinConfigurations.mac.system, captured before the
 # Linux support changes. Must stay byte-identical - any diff means the shared
 # home.nix changed macOS's evaluated output.
-DARWIN_BASELINE_DRVPATH="/nix/store/ij603ippz2sn5lzw8fhg026icrrcgk78-darwin-system-26.05.adda04f.drv"
+DARWIN_BASELINE_DRVPATH="/nix/store/avhclz0wdjm3mnv4s5ipxxlak3f7c30h-darwin-system-26.05.adda04f.drv"
 
 test_flake_check() {
   if ! command -v nix >/dev/null 2>&1; then
