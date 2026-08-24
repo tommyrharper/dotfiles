@@ -258,9 +258,9 @@ in
     else
       ''
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
-          $DRY_RUN_CMD loginctl enable-linger "$(id -un)"
+          $DRY_RUN_CMD /usr/bin/loginctl enable-linger "$(id -un)"
         else
-          loginctl enable-linger "$(id -un)"
+          /usr/bin/loginctl enable-linger "$(id -un)"
         fi
       ''
   );

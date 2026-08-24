@@ -30,7 +30,7 @@ FLAKE_USER=thomasharper
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/rvy57z4031ibgbwdznkpy8nqwrxim70h-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/dh583y8xjwc2519g5gdbrahlgjin0q5k-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -359,10 +359,10 @@ test_linux_ssh_agent_lingers_across_sessions() {
   for system in x86_64-linux aarch64-linux; do
     script=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.enableSshAgentLinger.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" enableSshAgentLinger activation script failed to evaluate"
-    assert_contains "$script" "loginctl enable-linger" \
-      "homeConfigurations.\"${FLAKE_USER}@${system}\" must run loginctl enable-linger on activation - without it, systemd-logind kills the ssh-agent systemd --user unit (and any cached key) as soon as the SSH session that ran rebuild closes, so a fresh SSH connection always gets an empty agent"
+    assert_contains "$script" "/usr/bin/loginctl enable-linger" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" must run /usr/bin/loginctl enable-linger on activation - without it, systemd-logind kills the ssh-agent systemd --user unit (and any cached key) as soon as the SSH session that ran rebuild closes, so a fresh SSH connection always gets an empty agent, and activation cannot assume loginctl is on PATH"
   done
-  pass "enableSshAgentLinger activation script runs loginctl enable-linger for both Linux homeConfigurations outputs"
+  pass "enableSshAgentLinger activation script runs /usr/bin/loginctl enable-linger for both Linux homeConfigurations outputs"
 }
 
 test_darwin_ssh_agent_not_duplicated() {
