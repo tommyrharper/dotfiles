@@ -282,6 +282,7 @@ One toggle controls both scopes: flip `usePersonalSetup` in `flake.nix` to `fals
 - `rebuild.sh` - re-applies the config after the first switch (macOS or Ubuntu).
   Run this every time you make a change.
 - `home/` - the actual config files that get symlinked into place; the sections below explain the shared symlink model and Pi's narrower selective setup.
+- `agent-capabilities.toml` / `agent-capabilities.sh` - declares and checks/syncs agent skills, Claude Code plugins, and Pi extras (see "Agent capabilities" below).
 
 ## How the symlinks work
 
@@ -319,6 +320,33 @@ The version and commit are immutable pins, so Pi does not move them during packa
 Both packages execute with your full user permissions and must be trusted like any other executable code. The compaction package is experimental, sends the relevant OpenAI compaction and continuity data to OpenAI, and upstream declares the stale peer range `>=0.80.9 <0.81.0`; this exact immutable ref was locally proven to load and perform remote compaction on Pi 0.82.0. Do not treat that proof as a guarantee for a different Pi version or a different package ref.
 
 Home Manager deliberately does not manage `~/.pi/agent` itself, or Pi authentication, sessions, trust decisions, caches, npm/git package trees, or any other runtime state. The model overrides contain no credentials or endpoint settings, do not choose a default model, and only take effect after you authenticate Pi yourself. This remains an additive post-video layer: it does not vendor Pi, a launcher, or package source code into this repository.
+
+## Agent capabilities (skills, plugins, Pi extras)
+
+`agent-capabilities.toml` is the one repo-tracked source of truth for the skills, Claude Code plugins, and repo-authored Pi extras this setup expects across Codex, Claude Code, Pi, and opencode. It declares desired state only - it does not hand-roll a package manager, and it never touches runtime/cache/plugin internals (`~/.codex/skills/.system`, `~/.codex/plugins/cache`, `~/.claude/plugins/cache`). Instead it drives each ecosystem's own supported mechanism:
+
+- **Skills** (`kind = "skill"`) install through the [`skills` CLI](https://skills.sh) (`skills add <owner>/<repo> -g --agent ...`), the same tool already declared in `tools.nix`. `source = "owner/repo"` is a `skills`-compatible package spec; `source = "local"` marks a skill with no reproducible remote source (hand-authored, or installed with `skills init`) - these are declared for visibility but sync always reports `manual-action-required` for them rather than guessing a source.
+- **Claude Code plugins** (`kind = "plugin"`) install through `claude plugin marketplace add <source>` followed by `claude plugin install <id>`, where `id` is the plugin's `<name>@<marketplace>` identifier. Codex plugins use the equivalent `codex plugin` commands, but nothing is currently seeded there - this machine's only Codex marketplaces are OpenAI's own bundled ones, with no user-added marketplace to declare.
+- **Pi extras** (`kind = "pi-extension"` / `"pi-theme"`) are represented for visibility only. They stay owned by Home Manager, which already symlinks `home/.pi/agent/{extensions,themes}` whole (see "Optional Pi configuration" above); sync always no-ops for these and points you at `./rebuild.sh`.
+- **opencode** natively discovers skills from `~/.claude/skills` and `~/.agents/skills` as "global compatibility" sources, and has no plugin marketplace of its own - so an opencode target for a skill is satisfied once its Codex or Claude Code copy is in place, with no separate sync step. opencode isn't installed on this machine, so nothing beyond that compatibility note is wired up for it.
+
+Manifest fields: `name`, `kind` (`skill` | `plugin` | `pi-extension` | `pi-theme`), `source`, optional `path` (defaults to `"."`, only meaningful for `pi-extension`/`pi-theme`), `targets` (subset of `codex`/`claude`/`opencode`/`pi`), and `id` (plugin only).
+
+```sh
+./agent-capabilities.sh check              # honest drift report (read-only)
+./agent-capabilities.sh check --json       # machine-readable
+./agent-capabilities.sh sync               # idempotent install, refuses local edits without --force
+./agent-capabilities.sh sync --dry-run     # show what sync would do, run nothing
+./agent-capabilities.sh sync --force       # overwrite local edits / adopt pre-existing directories
+```
+
+`check` reports, per target and kind: installed, declared-but-missing, installed-but-undeclared, stale lock entries (present in `~/.agents/.skill-lock.json` but no longer on disk), and manual-action-required. `sync` is safe to rerun: a skill directory that already exists but was never synced by this tool, or one whose content has changed since the last sync, is left alone and reported rather than overwritten, unless you pass `--force`.
+
+**To add a new skill:** find its `owner/repo` on [skills.sh](https://skills.sh) (or note `source = "local"` if it has none), add a `[[capability]]` entry with `kind = "skill"` and the agents it should reach in `targets`, then run `./agent-capabilities.sh sync`.
+**To add a new Claude Code plugin:** find its marketplace repo and `<name>@<marketplace>` id (`claude plugin list` after installing it once shows both), add a `[[capability]]` entry with `kind = "plugin"`, `source`, and `id`, then run `./agent-capabilities.sh sync`.
+**To sync on a new machine:** after `./rebuild.sh`, run `./agent-capabilities.sh sync`.
+**To check drift:** run `./agent-capabilities.sh check` any time.
+**What stays manual:** anything `source = "local"`, any plugin CLI or skill target this script has no mechanism for, and any conflict it refuses to overwrite - all show up as `manual-action-required` or a `skip:` line explaining why.
 
 ## Notes
 

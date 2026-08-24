@@ -1,0 +1,128 @@
+# Source of truth for agent capabilities (skills, plugins, Pi extras) expected
+# across Codex, Claude Code, Pi, and opencode.
+#
+# This declares DESIRED state only. It never touches runtime/cache/plugin
+# internals (~/.codex/skills/.system, ~/.codex/plugins/cache,
+# ~/.claude/plugins/cache) - those stay owned by their own tools.
+#
+# Field reference (see README.md, "Agent capabilities"):
+#   name    - capability name.
+#   kind    - "skill" | "plugin" | "pi-extension" | "pi-theme".
+#   source  - skill/plugin: "owner/repo" for the `skills`/`claude plugin`/
+#             `codex plugin` CLI to fetch from, or "local" when no
+#             reproducible remote source exists (sync reports
+#             manual-action-required for these).
+#             pi-extension/pi-theme: always "repo" (content lives here).
+#   path    - optional, defaults to ".". Relative path within this repo;
+#             only meaningful for pi-extension/pi-theme.
+#   targets - subset of ["codex", "claude", "opencode", "pi"].
+#   id      - plugin only: the "<plugin>@<marketplace>" id used by
+#             `claude plugin` / `codex plugin`.
+
+# --- skills, installed via the `skills` CLI (skills.sh) ---------------------
+# `skills ls -g --json` is the read-only source of truth sync/check compare
+# against; `skills add <source> -g --agent <agents> -y` is the install path.
+
+[[capability]]
+name = "gh-axi"
+kind = "skill"
+source = "kunchenguid/gh-axi"
+targets = ["codex", "claude", "opencode"]
+
+[[capability]]
+name = "lavish"
+kind = "skill"
+source = "kunchenguid/lavish-axi"
+targets = ["codex", "opencode"]
+
+[[capability]]
+name = "quota-axi"
+kind = "skill"
+source = "kunchenguid/quota-axi"
+targets = ["codex", "opencode"]
+
+[[capability]]
+name = "find-skills"
+kind = "skill"
+source = "vercel-labs/skills"
+targets = ["codex", "opencode"]
+
+[[capability]]
+name = "skill-creator"
+kind = "skill"
+source = "anthropics/skills"
+targets = ["codex", "opencode"]
+
+# "local" source skills were authored/installed with no tracked remote (the
+# `skills` CLI itself records source: null for these). Nothing to fetch on a
+# new machine - check reports them, sync always reports
+# manual-action-required rather than fabricating a source.
+[[capability]]
+name = "no-mistakes"
+kind = "skill"
+source = "local"
+targets = ["codex", "claude", "opencode"]
+
+[[capability]]
+name = "graphify"
+kind = "skill"
+source = "local"
+targets = ["claude"]
+
+# --- Claude Code plugins, installed via `claude plugin` ---------------------
+# `claude plugin list --json` is the read-only source of truth; sync runs
+# `claude plugin marketplace add <source>` then `claude plugin install <id>`.
+
+[[capability]]
+name = "caveman"
+kind = "plugin"
+source = "JuliusBrussee/caveman"
+id = "caveman@caveman"
+targets = ["claude"]
+
+[[capability]]
+name = "ponytail"
+kind = "plugin"
+source = "DietrichGebert/ponytail"
+id = "ponytail@ponytail"
+targets = ["claude"]
+
+[[capability]]
+name = "skill-codex"
+kind = "plugin"
+source = "skills-directory/skill-codex"
+id = "skill-codex@skill-codex"
+targets = ["claude"]
+
+[[capability]]
+name = "codex"
+kind = "plugin"
+source = "openai/codex-plugin-cc"
+id = "codex@openai-codex"
+targets = ["claude"]
+
+# --- Pi extras, repo-authored and already Home-Manager-managed --------------
+# These are represented here for visibility only; sync is a no-op for them
+# because home.nix already symlinks home/.pi/agent/{extensions,themes} in
+# whole. `./rebuild.sh` is what actually applies them.
+
+[[capability]]
+name = "calm"
+kind = "pi-extension"
+source = "repo"
+path = "home/.pi/agent/extensions/calm"
+targets = ["pi"]
+
+[[capability]]
+name = "terminal-status-title"
+kind = "pi-extension"
+source = "repo"
+path = "home/.pi/agent/extensions/terminal-status-title.js"
+targets = ["pi"]
+
+[[capability]]
+name = "rose-pine-moon"
+kind = "pi-theme"
+source = "repo"
+path = "home/.pi/agent/themes/rose-pine-moon.json"
+targets = ["pi"]
