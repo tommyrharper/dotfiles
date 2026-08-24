@@ -83,7 +83,8 @@ manifest_json() {
 # --- skills CLI helpers -------------------------------------------------
 
 # Maps our target vocabulary to the display name `skills ls --json` uses,
-# and to the slug `skills add --agent` expects.
+# and to the slug `skills add --agent` expects. opencode is check-only:
+# it reads the Codex/Claude skill directories as compatibility sources.
 skill_agent_display() {
   case "$1" in
     codex) echo "Codex" ;;
@@ -96,7 +97,7 @@ skill_agent_slug() {
   case "$1" in
     codex) echo "codex" ;;
     claude) echo "claude-code" ;;
-    opencode) echo "opencode" ;;
+    opencode) echo "" ;;
     *) echo "" ;;
   esac
 }
@@ -330,25 +331,32 @@ sync_skill() {
   fi
 
   local slugs=()
+  local dirs=()
+  local keys=()
   while IFS= read -r target; do
-    [ -n "$(skill_agent_slug "$target")" ] && slugs+=("$(skill_agent_slug "$target")")
+    local slug dir key last_hash cur_hash
+    slug="$(skill_agent_slug "$target")"
+    [ -n "$slug" ] || continue
+
+    dir="$(skill_dir_for_target "$name" "$target")"
+    key="skill:$name:$target"
+    last_hash="$(state_get "$key")"
+    cur_hash="$(content_hash "$dir")"
+
+    if [ -e "$dir" ] && [ -z "$last_hash" ] && [ "$force" != 1 ]; then
+      echo "skip: skill '$name' target '$target' exists at $dir but was never synced by this tool; rerun with --force to adopt it"
+      continue
+    fi
+    if [ -e "$dir" ] && [ -n "$last_hash" ] && [ "$last_hash" != "$cur_hash" ] && [ "$force" != 1 ]; then
+      echo "skip: skill '$name' target '$target' has local modifications since last sync; rerun with --force to overwrite"
+      continue
+    fi
+
+    slugs+=("$slug")
+    dirs+=("$dir")
+    keys+=("$key")
   done < <(jq -r '.[]' <<<"$targets_json")
   [ "${#slugs[@]}" -gt 0 ] || { echo "skip: skill '$name' has no skills-CLI target"; return; }
-
-  local dir="$HOME/.agents/skills/$name"
-  local key="skill:$name"
-  local last_hash cur_hash
-  last_hash="$(state_get "$key")"
-  cur_hash="$(content_hash "$dir")"
-
-  if [ -e "$dir" ] && [ -z "$last_hash" ] && [ "$force" != 1 ]; then
-    echo "skip: skill '$name' exists at $dir but was never synced by this tool; rerun with --force to adopt it"
-    return
-  fi
-  if [ -e "$dir" ] && [ -n "$last_hash" ] && [ "$last_hash" != "$cur_hash" ] && [ "$force" != 1 ]; then
-    echo "skip: skill '$name' has local modifications since last sync; rerun with --force to overwrite"
-    return
-  fi
 
   if [ "$dry_run" = 1 ]; then
     echo "dry-run: skills add $source -g --agent ${slugs[*]} -y"
@@ -359,7 +367,10 @@ sync_skill() {
     return
   fi
   skills add "$source" -g --agent "${slugs[@]}" -y
-  state_set "$key" "$(content_hash "$dir")"
+  local i
+  for i in "${!keys[@]}"; do
+    state_set "${keys[$i]}" "$(content_hash "${dirs[$i]}")"
+  done
   echo "synced: skill '$name' ($source) -> ${slugs[*]}"
 }
 
