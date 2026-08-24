@@ -70,7 +70,7 @@ fi
 echo "== stale lock entries (declared in .skill-lock.json but no folder on disk) =="
 any=0
 if [ -f "$LOCK_FILE" ]; then
-  if ! lock_names=$(jq -r '.skills | keys[]' "$LOCK_FILE"); then
+  if ! lock_names=$(jq -r 'if (.skills | type) == "object" then (.skills | keys[]) else error(".skills must be an object") end' "$LOCK_FILE"); then
     echo "agent-skills: failed to parse lock file: $LOCK_FILE" >&2
     exit 1
   fi

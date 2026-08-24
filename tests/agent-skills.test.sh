@@ -78,6 +78,16 @@ assert_not_contains "$OUTPUT" "  (none)" "malformed lock file must not report cl
 
 pass "check script fails closed on malformed lock files"
 
+ARRAY_LOCK="$TMP_ROOT/array-lock.json"
+printf '{"skills":[]}' > "$ARRAY_LOCK"
+if OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$ARRAY_LOCK" 2>&1); then
+  fail "check script exited zero on a schema-invalid lock file"
+fi
+assert_contains "$OUTPUT" "failed to parse lock file" "schema-invalid lock file should report a parse failure"
+assert_not_contains "$OUTPUT" "  (none)" "schema-invalid lock file must not report clean stale-lock output"
+
+pass "check script fails closed on schema-invalid lock files"
+
 # --- sync script dry-run makes no filesystem changes ---------------------
 
 DEST="$TMP_ROOT/dry-run-dest"
