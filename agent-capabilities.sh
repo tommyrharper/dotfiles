@@ -82,17 +82,9 @@ manifest_json() {
 
 # --- skills CLI helpers -------------------------------------------------
 
-# Maps our target vocabulary to the display name `skills ls --json` uses,
-# and to the slug `skills add --agent` expects. opencode is check-only:
-# it reads the Codex/Claude skill directories as compatibility sources.
-skill_agent_display() {
-  case "$1" in
-    codex) echo "Codex" ;;
-    claude) echo "Claude Code" ;;
-    opencode) echo "OpenCode" ;;
-    *) echo "" ;;
-  esac
-}
+# Maps our target vocabulary to the slug `skills add --agent` expects.
+# opencode is check-only: it reads the Codex/Claude skill directories as
+# compatibility sources.
 skill_agent_slug() {
   case "$1" in
     codex) echo "codex" ;;
@@ -100,14 +92,6 @@ skill_agent_slug() {
     opencode) echo "" ;;
     *) echo "" ;;
   esac
-}
-
-skills_installed_json() {
-  if command -v skills >/dev/null 2>&1; then
-    skills ls -g --json 2>/dev/null || echo "[]"
-  else
-    echo "[]"
-  fi
 }
 
 skill_dir_for_target() {
@@ -187,9 +171,8 @@ state_set() {
 # =========================================================================
 
 run_check() {
-  local manifest installed_skills installed_claude_plugins
+  local manifest installed_claude_plugins
   manifest="$(manifest_json)"
-  installed_skills="$(skills_installed_json)"
   installed_claude_plugins="$(claude_installed_json)"
 
   local rows="[]"
