@@ -281,12 +281,12 @@ Home Manager deliberately does not manage `~/.pi/agent` itself, or Pi authentica
 
 ## Personal agent skills
 
-`agent-skills.toml` declares the personal Claude/Codex agent skills that belong in `~/.agents/skills/` - each `[name]` section names a GitHub `source` repo and an optional `path` within it (defaults to `.`). The installed skill folders, plugin caches, auth, and sessions under `~/.agents/` are never tracked by this repo; only the manifest is.
+`agent-skills.toml` declares the personal Claude/Codex agent skills that belong in `~/.agents/skills/` - each `[name]` section names a GitHub `source` repo and an optional `path` within it (defaults to `.`). Installed skill folders and generated state under `~/.agents/`, plus plugin caches, auth, and sessions, are never tracked by this repo; only the manifest is.
 
 ```sh
 ./agent-skills-check.sh   # read-only: declared-and-installed, declared-but-missing, installed-but-undeclared, stale lock entries
 ./agent-skills-sync.sh          # install/update every declared skill into ~/.agents/skills/
-./agent-skills-sync.sh --dry-run  # print what sync would do, without touching the network or disk
+./agent-skills-sync.sh --dry-run  # print what sync would do, without cloning or writing files
 ```
 
 Both scripts accept `--manifest`, and `agent-skills-sync.sh` accepts `--dest` (`agent-skills-check.sh` accepts `--skills-dir` and `--lock`) to point at a different manifest or directory, e.g. for testing against a scratch directory instead of the real `~/.agents/skills/`. Skills managed by their own separate installer (like `no-mistakes`, via `no-mistakes init`) are deliberately left out of the manifest and will show up as "installed-but-undeclared" in the check output - that's expected, not a bug.

@@ -11,11 +11,11 @@ mkdir -p "$TMP_ROOT"
 
 # --- manifest parsing ---------------------------------------------------
 
-# shellcheck source=../agent-skills-lib.sh
+# shellcheck disable=SC1091
 . "$ROOT/agent-skills-lib.sh"
 
 MANIFEST="$TMP_ROOT/manifest.toml"
-cat > "$MANIFEST" <<'EOF'
+cat >"$MANIFEST" <<'EOF'
 # a comment
 [alpha]
 source = "org/alpha-repo"
@@ -36,9 +36,9 @@ agent_skills_parse_manifest "$MANIFEST" || fail "parser rejected a valid manifes
 pass "manifest parsing extracts name/source/path with default path"
 
 BAD_MANIFEST="$TMP_ROOT/bad.toml"
-printf 'source = "org/repo"\n' > "$BAD_MANIFEST"
+printf 'source = "org/repo"\n' >"$BAD_MANIFEST"
 if agent_skills_parse_manifest "$BAD_MANIFEST" 2>/dev/null; then
-  fail "parser accepted a key outside any [section]"
+	fail "parser accepted a key outside any [section]"
 fi
 pass "manifest parsing rejects a key outside any section"
 
@@ -48,12 +48,12 @@ SKILLS_DIR="$TMP_ROOT/skills"
 mkdir -p "$SKILLS_DIR/alpha" "$SKILLS_DIR/undeclared-tool"
 
 LOCK_FILE="$TMP_ROOT/lock.json"
-cat > "$LOCK_FILE" <<'EOF'
+cat >"$LOCK_FILE" <<'EOF'
 {"skills":{"alpha":{},"ghost-skill":{}}}
 EOF
 
-OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$LOCK_FILE") \
-  || fail "check script exited non-zero on a well-formed manifest"
+OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$LOCK_FILE") ||
+	fail "check script exited non-zero on a well-formed manifest"
 
 assert_contains "$OUTPUT" "declared-and-installed ==
   alpha" "alpha should be declared-and-installed"
@@ -69,9 +69,9 @@ assert_not_contains "$OUTPUT" "  alpha
 pass "check script reports all four drift categories"
 
 BAD_LOCK="$TMP_ROOT/bad-lock.json"
-printf '{"skills":' > "$BAD_LOCK"
+printf '{"skills":' >"$BAD_LOCK"
 if OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$BAD_LOCK" 2>&1); then
-  fail "check script exited zero on a malformed lock file"
+	fail "check script exited zero on a malformed lock file"
 fi
 assert_contains "$OUTPUT" "failed to parse lock file" "malformed lock file should report a parse failure"
 assert_not_contains "$OUTPUT" "  (none)" "malformed lock file must not report clean stale-lock output"
@@ -79,9 +79,9 @@ assert_not_contains "$OUTPUT" "  (none)" "malformed lock file must not report cl
 pass "check script fails closed on malformed lock files"
 
 ARRAY_LOCK="$TMP_ROOT/array-lock.json"
-printf '{"skills":[]}' > "$ARRAY_LOCK"
+printf '{"skills":[]}' >"$ARRAY_LOCK"
 if OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$ARRAY_LOCK" 2>&1); then
-  fail "check script exited zero on a schema-invalid lock file"
+	fail "check script exited zero on a schema-invalid lock file"
 fi
 assert_contains "$OUTPUT" "failed to parse lock file" "schema-invalid lock file should report a parse failure"
 assert_not_contains "$OUTPUT" "  (none)" "schema-invalid lock file must not report clean stale-lock output"
@@ -91,8 +91,8 @@ pass "check script fails closed on schema-invalid lock files"
 # --- sync script dry-run makes no filesystem changes ---------------------
 
 DEST="$TMP_ROOT/dry-run-dest"
-"$ROOT/agent-skills-sync.sh" --manifest "$MANIFEST" --dest "$DEST" --dry-run >/dev/null \
-  || fail "sync --dry-run exited non-zero"
+"$ROOT/agent-skills-sync.sh" --manifest "$MANIFEST" --dest "$DEST" --dry-run >/dev/null ||
+	fail "sync --dry-run exited non-zero"
 [ -d "$DEST" ] && fail "sync --dry-run must not create the destination directory"
 
 pass "sync --dry-run makes no filesystem changes"
