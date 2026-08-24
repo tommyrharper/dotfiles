@@ -1,0 +1,35 @@
+# Declares the personal agent skills that belong in ~/.agents/skills/.
+#
+# Each [name] section installs from a GitHub repo ("source") at an optional
+# subdirectory ("path", defaults to "." - the repo root) containing SKILL.md.
+#
+# Sync declared skills into ~/.agents/skills/:  ./agent-skills-sync.sh
+# Check declared vs. installed vs. lock drift:  ./agent-skills-check.sh
+#
+# `no-mistakes` is deliberately absent here - it installs its own skill file
+# via `no-mistakes init`/its own CLI, not through this generic skill-lock
+# system, so it is out of scope for this manifest.
+
+[gh-axi]
+source = "kunchenguid/gh-axi"
+path = "skills/gh-axi"
+
+[find-skills]
+source = "vercel-labs/skills"
+path = "skills/find-skills"
+
+[skill-creator]
+source = "anthropics/skills"
+path = "skills/skill-creator"
+
+[lavish]
+source = "kunchenguid/lavish-axi"
+path = "skills/lavish"
+
+[quota-axi]
+source = "kunchenguid/quota-axi"
+path = "skills/quota-axi"
+
+[chrome-devtools-axi]
+source = "kunchenguid/chrome-devtools-axi"
+path = "skills/chrome-devtools-axi"

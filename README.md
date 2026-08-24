@@ -240,6 +240,7 @@ One toggle controls both scopes: flip `usePersonalSetup` in `flake.nix` to `fals
 - `rebuild.sh` - re-applies the config after the first switch (macOS or Ubuntu).
   Run this every time you make a change.
 - `home/` - the actual config files that get symlinked into place; the sections below explain the shared symlink model and Pi's narrower selective setup.
+- `agent-skills.toml`, `agent-skills-sync.sh`, `agent-skills-check.sh` - declare and manage personal agent skills; see "Personal agent skills" below.
 
 ## How the symlinks work
 
@@ -277,6 +278,18 @@ The version and commit are immutable pins, so Pi does not move them during packa
 Both packages execute with your full user permissions and must be trusted like any other executable code. The compaction package is experimental, sends the relevant OpenAI compaction and continuity data to OpenAI, and upstream declares the stale peer range `>=0.80.9 <0.81.0`; this exact immutable ref was locally proven to load and perform remote compaction on Pi 0.82.0. Do not treat that proof as a guarantee for a different Pi version or a different package ref.
 
 Home Manager deliberately does not manage `~/.pi/agent` itself, or Pi authentication, sessions, trust decisions, caches, npm/git package trees, or any other runtime state. The model overrides contain no credentials or endpoint settings, do not choose a default model, and only take effect after you authenticate Pi yourself. This remains an additive post-video layer: it does not vendor Pi, a launcher, or package source code into this repository.
+
+## Personal agent skills
+
+`agent-skills.toml` declares the personal Claude/Codex agent skills that belong in `~/.agents/skills/` - each `[name]` section names a GitHub `source` repo and an optional `path` within it (defaults to `.`). The installed skill folders, plugin caches, auth, and sessions under `~/.agents/` are never tracked by this repo; only the manifest is.
+
+```sh
+./agent-skills-check.sh   # read-only: declared-and-installed, declared-but-missing, installed-but-undeclared, stale lock entries
+./agent-skills-sync.sh          # install/update every declared skill into ~/.agents/skills/
+./agent-skills-sync.sh --dry-run  # print what sync would do, without touching the network or disk
+```
+
+Both scripts accept `--manifest`, and `agent-skills-sync.sh` accepts `--dest` (`agent-skills-check.sh` accepts `--skills-dir` and `--lock`) to point at a different manifest or directory, e.g. for testing against a scratch directory instead of the real `~/.agents/skills/`. Skills managed by their own separate installer (like `no-mistakes`, via `no-mistakes init`) are deliberately left out of the manifest and will show up as "installed-but-undeclared" in the check output - that's expected, not a bug.
 
 ## Notes
 
