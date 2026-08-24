@@ -22,14 +22,14 @@ path = "skills/find-skills"
 source = "anthropics/skills"
 path = "skills/skill-creator"
 
-[lavish]
-source = "kunchenguid/lavish-axi"
-path = "skills/lavish"
-
 [quota-axi]
 source = "kunchenguid/quota-axi"
 path = "skills/quota-axi"
 
-[chrome-devtools-axi]
-source = "kunchenguid/chrome-devtools-axi"
-path = "skills/chrome-devtools-axi"
+[ponytail]
+source = "DietrichGebert/ponytail"
+path = "skills/ponytail"
+
+[caveman]
+source = "JuliusBrussee/caveman"
+path = "skills/caveman"
