@@ -113,8 +113,10 @@ If you clone it, review these before you run `bootstrap.sh`:
 **Private shell values:** copy `home/.config/zsh/private-env.zsh.example` to
 `home/.config/zsh/private-env.zsh` and fill in any local-only values you want
 the shell to use. The real file is ignored by Git. For example, setting
-`HETZNER_HOST` there enables the `hetzner` zsh alias as `ssh root@$HETZNER_HOST`
-without committing the host value to this public repo.
+`HETZNER_HOST` there lets the `hetzner` zsh alias run `ssh root@$HETZNER_HOST`
+without committing the host value to this public repo. The alias itself is
+always defined; without `HETZNER_HOST` set it just prints an error instead of
+ssh-ing anywhere.
 
 **Git identity:** this config deliberately does not set your git name or email.
 Git will stop your first commit and tell you to set them (`git config --global user.name "Your Name"` and `git config --global user.email you@example.com`).

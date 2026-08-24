@@ -73,10 +73,6 @@ in
         source "$private_env"
       fi
       unset private_env
-
-      if [[ -n "''${HETZNER_HOST:-}" ]]; then
-        alias hetzner="ssh root@$HETZNER_HOST"
-      fi
     '';
     shellAliases = {
       ".." = "cd ..";
@@ -87,6 +83,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex -s workspace-write -a never";
       gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
+      hetzner = ''[[ -n "$HETZNER_HOST" ]] && ssh root@$HETZNER_HOST || echo "HETZNER_HOST not set (private env not loaded)" >&2'';
 
       # One-shot, no tools
       askclaude = ''claude -p --tools=""'';
