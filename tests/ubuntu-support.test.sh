@@ -20,11 +20,13 @@ FLAKE_USER=thomasharper
 # when the Hetzner alias changed from root to the configured user, then
 # re-pinned again after the fm/dotfiles-ssh-fragment-approach change replaced
 # programs.ssh with fragment symlinks + an Include-prepending activation
-# script in home.nix.
+# script in home.nix, then re-pinned again after adding gnhf (platform =
+# "all", updatePolicy = "fast") to tools.nix, which legitimately adds a new
+# Homebrew formula to the macOS config.
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/50xdh8icbkm5qyh90nrwmhlwbiaf8rl1-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/ld0n9hijir1n1r9f4mii4iqrnf08wmks-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -120,13 +122,15 @@ test_linux_native_install_tools_wired() {
 codex codex
 herdr herdr
 skills skills
-pi-coding-agent pi"
+pi-coding-agent pi
+gnhf gnhf"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
     "Would install codex via https://chatgpt.com/codex/install.sh"
     "Would install herdr via https://herdr.dev/install.sh"
     "Would install skills via npm install -g skills"
     "Would install pi-coding-agent via https://pi.dev/install.sh"
+    "Would install gnhf via npm install -g gnhf"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
   for system in x86_64-linux aarch64-linux; do
@@ -143,7 +147,7 @@ pi-coding-agent pi"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, herdr, skills, and pi-coding-agent's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -163,7 +167,7 @@ pi-coding-agent pi"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex herdr skills pi; do
+    for bin_name in claude codex herdr skills pi gnhf; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -172,7 +176,7 @@ pi-coding-agent pi"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, herdr, skills, and pi-coding-agent's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_linux_archive_tools_present_for_native_installers() {
@@ -228,7 +232,8 @@ test_linux_archive_tools_present_for_native_installers() {
       | sed -E "s#.*curl -fsSL https://chatgpt\.com/codex/install\.sh.*#resolved_tar=\\\$(command -v tar) \&\& resolved_gzip=\\\$(command -v gzip) \&\& [ \"\\\$resolved_tar\" = \"$gnutar_path/bin/tar\" ] \&\& [ \"\\\$resolved_gzip\" = \"$gzip_path/bin/gzip\" ] || { echo \"tar/gzip resolved to \\\${resolved_tar:-missing}/\\\${resolved_gzip:-missing}, expected $gnutar_path/bin/tar/$gzip_path/bin/gzip\"; exit 1; }; if [ -n \"\\\${TAR_XZF_FIXTURE:-}\" ]; then mkdir -p \"\\\$HOME/extracted\" \&\& tar -xzf \"\\\$TAR_XZF_FIXTURE\" -C \"\\\$HOME/extracted\" \&\& [ -f \"\\\$HOME/extracted/payload\" ]; fi#" \
       | sed -E 's#.*curl -fsSL https://herdr\.dev/install\.sh.*#:#' \
       | sed -E 's#.*npm install -g skills.*#:#' \
-      | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#:#')
+      | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#:#' \
+      | sed -E 's#.*npm install -g gnhf.*#:#')
 
     if [ "$system" = "$current_system" ]; then
       nix build --no-link "$gnutar_path" "$gzip_path" "$coreutils_path" >/dev/null 2>&1 \
@@ -284,7 +289,8 @@ test_linux_native_install_fault_isolation() {
       | sed -E 's#.*curl -fsSL https://chatgpt\.com/codex/install\.sh.*#false#' \
       | sed -E 's#.*curl -fsSL https://herdr\.dev/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/herdr" \&\& chmod +x "$HOME/.local/bin/herdr"#' \
       | sed -E 's#.*npm install -g skills.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/skills" \&\& chmod +x "$HOME/.local/bin/skills"#' \
-      | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/pi" \&\& chmod +x "$HOME/.local/bin/pi"#')
+      | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/pi" \&\& chmod +x "$HOME/.local/bin/pi"#' \
+      | sed -E 's#.*npm install -g gnhf.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/gnhf" \&\& chmod +x "$HOME/.local/bin/gnhf"#')
 
     tmp_home=$(dotfiles_test_tmproot "dotfiles-fault-isolation-$system")
     out=$(HOME="$tmp_home" bash -eu -o pipefail -c "$patched" 2>&1)
@@ -298,7 +304,7 @@ test_linux_native_install_fault_isolation() {
     [ ! -e "$tmp_home/.local/bin/codex" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" fault-isolation test fixture is broken: codex's forced failure still produced a binary"
 
-    for bin in claude herdr skills pi; do
+    for bin in claude herdr skills pi gnhf; do
       [ -x "$tmp_home/.local/bin/$bin" ] \
         || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must still install $bin when codex's install fails, got: $out"
     done

@@ -33,6 +33,10 @@
   # same name - so it uses nativeInstallNpmPackage instead of nativeInstallUrl.
   { name = "skills"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "skills"; }
   { name = "pi-coding-agent"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://pi.dev/install.sh"; nativeInstallBinName = "pi"; }
+  # gnhf's homebrew-core formula depends on node like the others above (via
+  # Homebrew's own dependency resolution); its own npm package of the same
+  # name (bin: gnhf) covers Ubuntu the same way skills does.
+  { name = "gnhf"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "gnhf"; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
