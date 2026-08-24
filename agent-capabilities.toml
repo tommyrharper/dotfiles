@@ -20,8 +20,8 @@
 #             `claude plugin` / `codex plugin`.
 
 # --- skills, installed via the `skills` CLI (skills.sh) ---------------------
-# `skills ls -g --json` is the read-only source of truth sync/check compare
-# against; `skills add <source> -g --agent <agents> -y` is the install path.
+# Check reads the stable Codex/Claude skill directories and Codex lockfile;
+# `skills add <source> -g --agent <agents> -y` is the install path.
 
 [[capability]]
 name = "gh-axi"
