@@ -127,10 +127,21 @@ else
     # and nothing else, so a bad one locks you out of the machine entirely.
     echo "    WARNING: $ZSH_BIN does not start - leaving the login shell as $CURRENT_SHELL" >&2
   else
-    # chsh rejects any shell missing from /etc/shells.
-    grep -qxF "$ZSH_BIN" /etc/shells || echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null
-    sudo chsh -s "$ZSH_BIN" "$REAL_USER"
-    echo "    login shell is now $ZSH_BIN - open a new SSH session to pick it up"
+    # chsh rejects any shell missing from /etc/shells. Fault-isolated on
+    # purpose: this is the only step in the Linux branch that needs sudo, and
+    # everything above it has already succeeded by now - a box where sudo is
+    # absent or denied should get a warning plus the command to run by hand,
+    # not a set -e abort that reads as "the whole bootstrap failed".
+    if { grep -qxF "$ZSH_BIN" /etc/shells \
+           || echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null; } \
+       && sudo chsh -s "$ZSH_BIN" "$REAL_USER"; then
+      echo "    login shell is now $ZSH_BIN - open a new SSH session to pick it up"
+    else
+      echo "    WARNING: could not set the login shell - this step needs sudo." >&2
+      echo "    Until you run the following, SSH_AUTH_SOCK never reaches your shell" >&2
+      echo "    and every git pull will re-prompt for your key passphrase:" >&2
+      echo "      echo $ZSH_BIN | sudo tee -a /etc/shells && sudo chsh -s $ZSH_BIN $REAL_USER" >&2
+    fi
   fi
 fi
 

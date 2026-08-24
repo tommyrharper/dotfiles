@@ -382,7 +382,7 @@ test_darwin_ssh_agent_not_duplicated() {
 # closing fi) and runs it against stubbed getent/chsh/sudo, so the guard that
 # keeps a non-starting shell out of /etc/passwd is exercised, not just grepped.
 run_bootstrap_login_shell_block() {
-  local home=$1 current_shell=$2 zsh_runs=$3 log=$4 block stub
+  local home=$1 current_shell=$2 zsh_runs=$3 log=$4 sudo_ok=${5:-yes} block stub
   block=$(awk '/^  ZSH_BIN=/,/^  fi$/' "$ROOT/bootstrap.sh")
   [ -n "$block" ] || fail "bootstrap.sh no longer contains the ZSH_BIN login-shell block"
 
@@ -390,7 +390,11 @@ run_bootstrap_login_shell_block() {
   mkdir -p "$stub" "$home/.nix-profile/bin"
   printf '#!/bin/sh\necho "dotfiles-test:x:1000:1000::%s:%s"\n' "$home" "$current_shell" > "$stub/getent"
   printf '#!/bin/sh\nprintf "chsh %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/chsh"
-  printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/sudo"
+  if [ "$sudo_ok" = yes ]; then
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/sudo"
+  else
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\necho "sudo: a password is required" >&2\nexit 1\n' "$log" > "$stub/sudo"
+  fi
   chmod +x "$stub/getent" "$stub/chsh" "$stub/sudo"
 
   if [ "$zsh_runs" = yes ]; then
@@ -400,8 +404,12 @@ run_bootstrap_login_shell_block() {
   fi
   chmod +x "$home/.nix-profile/bin/zsh"
 
+  # bootstrap.sh runs under `set -euo pipefail`, so the block has to be
+  # exercised under it too - that is the only way a step that aborts the
+  # whole bootstrap is distinguishable from one that warns and carries on.
   HOME="$home" REAL_USER=dotfiles-test PATH="$stub:$PATH" \
-    bash -c "$block" 2>&1
+    bash -euo pipefail -c "$block" 2>&1
+  printf 'exit:%s\n' "$?"
 }
 
 test_bootstrap_sets_zsh_login_shell_on_linux() {
@@ -436,6 +444,17 @@ test_bootstrap_sets_zsh_login_shell_on_linux() {
   out=$(run_bootstrap_login_shell_block "$home" "$home/.nix-profile/bin/zsh" yes "$log")
   assert_not_contains "$(cat "$log" 2>/dev/null)" "chsh" \
     "bootstrap.sh must not re-chsh a user whose login shell is already the Nix zsh (got: $out)"
+
+  # No sudo (or sudo denied) must not abort bootstrap: every earlier step has
+  # already succeeded by then, and `set -euo pipefail` would otherwise make a
+  # last-step permission failure look like a total bootstrap failure.
+  home=$(dotfiles_test_tmproot dotfiles-login-shell-nosudo)
+  log="$home/calls"
+  out=$(run_bootstrap_login_shell_block "$home" /bin/bash yes "$log" no)
+  assert_contains "$out" "exit:0" \
+    "bootstrap.sh must not abort under set -e when sudo is unavailable for the login-shell switch (got: $out)"
+  assert_contains "$out" "sudo chsh -s $home/.nix-profile/bin/zsh dotfiles-test" \
+    "bootstrap.sh must print the exact command to run by hand when it could not switch the login shell itself (got: $out)"
   pass "bootstrap.sh switches the Linux login shell to the Nix zsh, refuses to do so if that zsh will not start, and is a no-op once switched"
 }
 
