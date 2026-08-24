@@ -68,6 +68,16 @@ assert_not_contains "$OUTPUT" "  alpha
 
 pass "check script reports all four drift categories"
 
+BAD_LOCK="$TMP_ROOT/bad-lock.json"
+printf '{"skills":' > "$BAD_LOCK"
+if OUTPUT=$("$ROOT/agent-skills-check.sh" --manifest "$MANIFEST" --skills-dir "$SKILLS_DIR" --lock "$BAD_LOCK" 2>&1); then
+  fail "check script exited zero on a malformed lock file"
+fi
+assert_contains "$OUTPUT" "failed to parse lock file" "malformed lock file should report a parse failure"
+assert_not_contains "$OUTPUT" "  (none)" "malformed lock file must not report clean stale-lock output"
+
+pass "check script fails closed on malformed lock files"
+
 # --- sync script dry-run makes no filesystem changes ---------------------
 
 DEST="$TMP_ROOT/dry-run-dest"

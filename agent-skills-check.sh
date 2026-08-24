@@ -70,13 +70,17 @@ fi
 echo "== stale lock entries (declared in .skill-lock.json but no folder on disk) =="
 any=0
 if [ -f "$LOCK_FILE" ]; then
+  if ! lock_names=$(jq -r '.skills | keys[]' "$LOCK_FILE"); then
+    echo "agent-skills: failed to parse lock file: $LOCK_FILE" >&2
+    exit 1
+  fi
   while IFS= read -r name; do
     [ -z "$name" ] && continue
     if [ -z "${installed[$name]:-}" ]; then
       echo "  $name"
       any=1
     fi
-  done < <(jq -r '.skills | keys[]' "$LOCK_FILE")
+  done <<< "$lock_names"
 else
   echo "  (lock file not found: $LOCK_FILE)"
   any=1
