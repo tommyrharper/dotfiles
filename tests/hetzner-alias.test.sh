@@ -58,6 +58,14 @@ if [[ "$actual" == *"ssh-stub-called"* ]]; then
   fail "hetzner called ssh when no private env file is present, got: $actual"
 fi
 
+printf 'export HETZNER_PRIVATE_HOST="direct.example.invalid"\n' >"$PRIVATE_FILE"
+render_zshrc
+actual=$(run_hetzner)
+assert_contains "$actual" "not set" "hetzner accepts direct HETZNER_PRIVATE_HOST from the private file"
+if [[ "$actual" == *"ssh-stub-called"* ]]; then
+  fail "hetzner called ssh from a direct HETZNER_PRIVATE_HOST private file assignment, got: $actual"
+fi
+
 printf 'export HETZNER_HOST="%s"\n' "$PLACEHOLDER_HOST" >"$PRIVATE_FILE"
 render_zshrc
 actual=$(run_hetzner)

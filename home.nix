@@ -71,6 +71,7 @@ in
       unset HETZNER_HOST HETZNER_PRIVATE_HOST
       if [[ -r "$private_env" ]]; then
         source "$private_env"
+        unset HETZNER_PRIVATE_HOST
         if [[ -n "''${HETZNER_HOST:-}" ]]; then
           HETZNER_PRIVATE_HOST="$HETZNER_HOST"
         fi
