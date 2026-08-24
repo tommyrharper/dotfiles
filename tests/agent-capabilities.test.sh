@@ -31,7 +31,7 @@ cat >"$FIXTURE_MANIFEST" <<'EOF'
 name = "fixture-skill"
 kind = "skill"
 source = "acme/fixture-skill"
-targets = ["codex", "claude"]
+targets = ["codex", "claude", "opencode"]
 
 [[capability]]
 name = "fixture-local-skill"
@@ -69,9 +69,28 @@ if [ "\$1" = "ls" ]; then
   exit 0
 fi
 if [ "\$1" = "add" ]; then
-  # simulate the real installer creating the skill directory
-  mkdir -p "$FIXTURE_HOME/.agents/skills/\$2"
-  echo "installed" > "$FIXTURE_HOME/.agents/skills/\$2/SKILL.md"
+  skill_name="\${2##*/}"
+  shift 2
+  while [ "\$#" -gt 0 ]; do
+    if [ "\$1" = "--agent" ]; then
+      shift
+      while [ "\$#" -gt 0 ] && [[ "\$1" != -* ]]; do
+        case "\$1" in
+          codex)
+            mkdir -p "$FIXTURE_HOME/.agents/skills/\$skill_name"
+            echo "installed" > "$FIXTURE_HOME/.agents/skills/\$skill_name/SKILL.md"
+            ;;
+          claude-code)
+            mkdir -p "$FIXTURE_HOME/.claude/skills/\$skill_name"
+            echo "installed" > "$FIXTURE_HOME/.claude/skills/\$skill_name/SKILL.md"
+            ;;
+        esac
+        shift
+      done
+      continue
+    fi
+    shift
+  done
   exit 0
 fi
 exit 0
@@ -145,13 +164,14 @@ not_stale=$(jq -r '[.[] | select(.name=="fixture-skill" and .status=="stale-lock
 pass "check detects a lock entry with no matching on-disk skill directory"
 rm -f "$FIXTURE_HOME/.agents/.skill-lock.json"
 
-# --- sync refuses to touch a pre-existing, never-synced directory --------
+# --- sync refuses to touch a pre-existing, never-synced target -----------
 
 : >"$CALL_LOG"
 out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill 2>&1)
-assert_contains "$out" "never synced by this tool" "sync should refuse an unmanaged pre-existing skill dir without --force"
-[ -s "$CALL_LOG" ] && fail "sync must not invoke skills/claude when it refuses to adopt an unmanaged directory"
-pass "sync refuses to adopt a pre-existing unmanaged skill directory without --force"
+assert_contains "$out" "target 'codex' exists" "sync should refuse an unmanaged pre-existing codex skill dir without --force"
+assert_contains "$(cat "$CALL_LOG")" "skills add acme/fixture-skill -g --agent claude-code -y" "sync should still install the eligible claude target"
+assert_not_contains "$(cat "$CALL_LOG")" "opencode" "sync must never pass opencode to the skills CLI"
+pass "sync refuses unmanaged target directories without blocking eligible targets"
 
 # --- sync --force adopts it, records state, is idempotent ----------------
 
@@ -159,16 +179,37 @@ pass "sync refuses to adopt a pre-existing unmanaged skill directory without --f
 out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill --force 2>&1)
 assert_contains "$out" "synced: skill 'fixture-skill'" "forced sync should report success"
 assert_contains "$(cat "$CALL_LOG")" "skills add acme/fixture-skill" "forced sync should call \`skills add\` with the declared source"
+assert_contains "$(cat "$CALL_LOG")" "codex claude-code" "forced sync should target codex and claude"
+assert_not_contains "$(cat "$CALL_LOG")" "opencode" "forced sync must not pass opencode to the skills CLI"
 pass "sync --force adopts a pre-existing directory and calls the skills CLI"
 
-# --- local modification after a recorded sync is refused without --force -
+echo "hand-edited" >"$FIXTURE_HOME/.claude/skills/fixture-skill/local-change.md"
+: >"$CALL_LOG"
+out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill 2>&1)
+assert_contains "$out" "target 'claude' has local modifications" "sync should detect drift from the recorded claude hash"
+assert_contains "$(cat "$CALL_LOG")" "skills add acme/fixture-skill -g --agent codex -y" "sync should continue with the unmodified codex target"
+assert_not_contains "$(cat "$CALL_LOG")" "claude-code" "sync must not overwrite the modified claude target without --force"
+pass "sync protects claude target modifications independently"
+
+: >"$CALL_LOG"
+out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill --force 2>&1)
+assert_contains "$out" "synced: skill 'fixture-skill'" "forced sync should re-adopt the modified claude target"
+pass "sync --force re-adopts modified target directories"
+
+# --- local modification after a recorded sync skips only that target -----
 
 echo "hand-edited" >"$FIXTURE_HOME/.agents/skills/fixture-skill/local-change.md"
 : >"$CALL_LOG"
 out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill 2>&1)
-assert_contains "$out" "local modifications" "sync should detect drift from the recorded hash"
-[ -s "$CALL_LOG" ] && fail "sync must not overwrite local modifications without --force"
-pass "sync refuses to overwrite local modifications made since the last sync"
+assert_contains "$out" "target 'codex' has local modifications" "sync should detect drift from the recorded codex hash"
+assert_contains "$(cat "$CALL_LOG")" "skills add acme/fixture-skill -g --agent claude-code -y" "sync should continue with the unmodified claude target"
+assert_not_contains "$(cat "$CALL_LOG")" " --agent codex" "sync must not overwrite the modified codex target without --force"
+pass "sync skips only the target modified since the last sync"
+
+out=$(run_caps sync --manifest "$FIXTURE_MANIFEST" --only skill --dry-run 2>&1)
+assert_contains "$out" "target 'codex' has local modifications" "dry-run should still report the modified codex target"
+assert_not_contains "$out" "opencode" "dry-run must not show opencode as a skills CLI target"
+pass "dry-run omits opencode from skills CLI targets"
 
 # --- local-source skills always report manual action, never call skills --
 
