@@ -15,12 +15,13 @@ set -u
 FLAKE_USER=thomasharper
 
 # Pinned at the moment Ubuntu support was layered on top of the tools.nix
-# refactor (PR #17, merged as 51fe4b7), then re-pinned after deliberate
-# macOS-affecting changes to shared Home Manager zsh initContent, most recently
-# when the Hetzner alias changed from root to the configured user. Update this
-# only alongside a deliberate macOS-affecting change; an unexpected mismatch
-# means something meant to be Linux-only leaked into the shared macOS
-# evaluation.
+# refactor (PR #17, merged as 51fe4b7), then re-pinned after PR #20
+# (hetzner-alias, merged as 9aac04f), then re-pinned again after 5471bda
+# ("change hetzner alias to use user rather than root") changed the same
+# shared initContent string without bumping this constant - again no
+# Ubuntu-support change, just a stale pin. Update this only alongside a
+# deliberate macOS-affecting change; an unexpected mismatch means something
+# meant to be Linux-only leaked into the shared macOS evaluation.
 EXPECTED_DARWIN_DRVPATH="/nix/store/cvwdzi90ia2axilzpjghii48mnxcppih-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
