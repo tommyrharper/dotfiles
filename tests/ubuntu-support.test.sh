@@ -22,11 +22,15 @@ FLAKE_USER=thomasharper
 # programs.ssh with fragment symlinks + an Include-prepending activation
 # script in home.nix, then re-pinned again after adding gnhf (platform =
 # "all", updatePolicy = "fast") to tools.nix, which legitimately adds a new
-# Homebrew formula to the macOS config.
+# Homebrew formula to the macOS config, then re-pinned again after adding the
+# Linux-only enableSshAgentLinger activation script (home.nix): even though
+# its script body is the empty string on Darwin (isDarwin branch), registering
+# the activation entry at all still shifts the generated activation script
+# text, so the drvPath moves even though nothing runs differently on macOS.
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/ld0n9hijir1n1r9f4mii4iqrnf08wmks-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/dh583y8xjwc2519g5gdbrahlgjin0q5k-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -325,6 +329,146 @@ test_darwin_native_install_absent() {
   pass "darwinConfigurations.mac has no installNativeTools activation script (herdr stays Homebrew-managed on macOS)"
 }
 
+test_linux_ssh_agent_persists() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for ssh-agent persistence check"
+    return 0
+  fi
+  local system enabled
+  for system in x86_64-linux aarch64-linux; do
+    enabled=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.services.ssh-agent.enable" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" services.ssh-agent.enable failed to evaluate"
+    [ "$enabled" = "true" ] \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" must enable services.ssh-agent so a key added once survives across shells on a minimal Ubuntu server with no gnome-keyring"
+
+    local unit
+    unit=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.ssh-agent.Install.WantedBy" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" systemd user ssh-agent unit failed to evaluate"
+    assert_contains "$unit" "default.target" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" ssh-agent systemd unit must start on login (WantedBy default.target) to survive across shells"
+  done
+  pass "services.ssh-agent is enabled with a systemd user unit for both Linux homeConfigurations outputs"
+}
+
+test_linux_ssh_agent_lingers_across_sessions() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for ssh-agent linger check"
+    return 0
+  fi
+  local system script
+  for system in x86_64-linux aarch64-linux; do
+    script=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.enableSshAgentLinger.data" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" enableSshAgentLinger activation script failed to evaluate"
+    assert_contains "$script" "loginctl enable-linger" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" must run loginctl enable-linger on activation - without it, systemd-logind kills the ssh-agent systemd --user unit (and any cached key) as soon as the SSH session that ran rebuild closes, so a fresh SSH connection always gets an empty agent"
+  done
+  pass "enableSshAgentLinger activation script runs loginctl enable-linger for both Linux homeConfigurations outputs"
+}
+
+test_darwin_ssh_agent_not_duplicated() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for darwin ssh-agent check"
+    return 0
+  fi
+  local enabled
+  enabled=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.services.ssh-agent.enable" 2>/dev/null) \
+    || fail "darwinConfigurations.mac home-manager services.ssh-agent.enable failed to evaluate"
+  [ "$enabled" = "false" ] \
+    || fail "darwinConfigurations.mac must leave services.ssh-agent disabled - macOS already gets a persistent agent for free via launchd + Keychain (UseKeychain), enabling it here would run a redundant agent"
+  pass "services.ssh-agent stays disabled on darwinConfigurations.mac (macOS already has launchd + Keychain)"
+}
+
+# Extracts bootstrap.sh's Linux-only login-shell block (ZSH_BIN=... through its
+# closing fi) and runs it against stubbed getent/chsh/sudo, so the guard that
+# keeps a non-starting shell out of /etc/passwd is exercised, not just grepped.
+run_bootstrap_login_shell_block() {
+  local home=$1 current_shell=$2 zsh_runs=$3 log=$4 sudo_ok=${5:-yes} block stub
+  block=$(awk '/^  ZSH_BIN=/,/^  fi$/' "$ROOT/bootstrap.sh")
+  [ -n "$block" ] || fail "bootstrap.sh no longer contains the ZSH_BIN login-shell block"
+
+  stub="$home/stubs"
+  mkdir -p "$stub" "$home/.nix-profile/bin"
+  printf '#!/bin/sh\necho "dotfiles-test:x:1000:1000::%s:%s"\n' "$home" "$current_shell" > "$stub/getent"
+  printf '#!/bin/sh\nprintf "chsh %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/chsh"
+  if [ "$sudo_ok" = yes ]; then
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/sudo"
+  else
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\necho "sudo: a password is required" >&2\nexit 1\n' "$log" > "$stub/sudo"
+  fi
+  chmod +x "$stub/getent" "$stub/chsh" "$stub/sudo"
+
+  if [ "$zsh_runs" = yes ]; then
+    printf '#!/bin/sh\nexit 0\n' > "$home/.nix-profile/bin/zsh"
+  else
+    printf '#!/bin/sh\nexit 1\n' > "$home/.nix-profile/bin/zsh"
+  fi
+  chmod +x "$home/.nix-profile/bin/zsh"
+
+  # bootstrap.sh runs under `set -euo pipefail`, so the block has to be
+  # exercised under it too - that is the only way a step that aborts the
+  # whole bootstrap is distinguishable from one that warns and carries on.
+  HOME="$home" REAL_USER=dotfiles-test PATH="$stub:$PATH" \
+    bash -euo pipefail -c "$block" 2>&1
+  printf 'exit:%s\n' "$?"
+}
+
+test_bootstrap_sets_zsh_login_shell_on_linux() {
+  # home.nix enables programs.zsh only, and home-manager's services.ssh-agent
+  # module injects SSH_AUTH_SOCK into just the shells it manages. Ubuntu leaves
+  # the login shell as /bin/bash, so the agent runs but no shell ever learns
+  # its socket and every git pull re-prompts for the key passphrase. bootstrap.sh
+  # has to move the login shell to the Nix zsh, or the whole zsh config is dead.
+  local home log out
+
+  home=$(dotfiles_test_tmproot dotfiles-login-shell-switch)
+  log="$home/calls"
+  out=$(run_bootstrap_login_shell_block "$home" /bin/bash yes "$log")
+  assert_contains "$(cat "$log" 2>/dev/null)" "chsh -s $home/.nix-profile/bin/zsh dotfiles-test" \
+    "bootstrap.sh must chsh a /bin/bash user to the Nix zsh, otherwise SSH_AUTH_SOCK never reaches the login shell (got: $out)"
+  assert_contains "$(cat "$log" 2>/dev/null)" "/etc/shells" \
+    "bootstrap.sh must add the Nix zsh to /etc/shells first - chsh rejects any shell missing from it (got: $out)"
+
+  # The lockout guard: sshd hands you your login shell and nothing else, so a
+  # shell that does not start makes the machine unreachable over SSH.
+  home=$(dotfiles_test_tmproot dotfiles-login-shell-broken)
+  log="$home/calls"
+  out=$(run_bootstrap_login_shell_block "$home" /bin/bash no "$log")
+  assert_not_contains "$(cat "$log" 2>/dev/null)" "chsh" \
+    "bootstrap.sh must never chsh to a zsh that fails to start - that locks the user out of SSH entirely (got: $out)"
+  assert_contains "$out" "leaving the login shell as /bin/bash" \
+    "bootstrap.sh must say it left the login shell alone when the Nix zsh does not start (got: $out)"
+
+  # Idempotent: re-running bootstrap.sh on an already-switched box is a no-op.
+  home=$(dotfiles_test_tmproot dotfiles-login-shell-noop)
+  log="$home/calls"
+  out=$(run_bootstrap_login_shell_block "$home" "$home/.nix-profile/bin/zsh" yes "$log")
+  assert_not_contains "$(cat "$log" 2>/dev/null)" "chsh" \
+    "bootstrap.sh must not re-chsh a user whose login shell is already the Nix zsh (got: $out)"
+
+  # No sudo (or sudo denied) must not abort bootstrap: every earlier step has
+  # already succeeded by then, and `set -euo pipefail` would otherwise make a
+  # last-step permission failure look like a total bootstrap failure.
+  home=$(dotfiles_test_tmproot dotfiles-login-shell-nosudo)
+  log="$home/calls"
+  out=$(run_bootstrap_login_shell_block "$home" /bin/bash yes "$log" no)
+  assert_contains "$out" "exit:0" \
+    "bootstrap.sh must not abort under set -e when sudo is unavailable for the login-shell switch (got: $out)"
+  assert_contains "$out" "sudo chsh -s $home/.nix-profile/bin/zsh dotfiles-test" \
+    "bootstrap.sh must print the exact command to run by hand when it could not switch the login shell itself (got: $out)"
+  pass "bootstrap.sh switches the Linux login shell to the Nix zsh, refuses to do so if that zsh will not start, and is a no-op once switched"
+}
+
+test_darwin_login_shell_untouched() {
+  # macOS already logs into zsh; the chsh/sudo step must stay in the Linux
+  # branch, which the else-branch structure of bootstrap.sh gives for free.
+  local darwin_branch
+  darwin_branch=$(awk '/^if \[ "\$PLATFORM" = darwin \]; then$/,/^else$/' "$ROOT/bootstrap.sh")
+  [ -n "$darwin_branch" ] || fail "bootstrap.sh no longer has a darwin branch to check"
+  assert_not_contains "$darwin_branch" "chsh" \
+    "bootstrap.sh must not touch the login shell on macOS - it already logs into zsh"
+  pass "bootstrap.sh's macOS branch leaves the login shell alone"
+}
+
 test_darwin_drvpath_unchanged
 test_linux_home_configurations_evaluate
 test_linux_home_manager_cli_enabled
@@ -334,3 +478,8 @@ test_linux_native_install_tools_wired
 test_linux_archive_tools_present_for_native_installers
 test_linux_native_install_fault_isolation
 test_darwin_native_install_absent
+test_linux_ssh_agent_persists
+test_linux_ssh_agent_lingers_across_sessions
+test_darwin_ssh_agent_not_duplicated
+test_bootstrap_sets_zsh_login_shell_on_linux
+test_darwin_login_shell_untouched

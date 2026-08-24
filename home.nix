@@ -230,6 +230,44 @@ in
   home.file.".config/opencode/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/AGENTS.md";
 
+  # Linux-only: a persistent ssh-agent so AddKeysToAgent in the SSH fragments
+  # has a long-lived agent to add keys to. Without this, a minimal Ubuntu server
+  # (no gnome-keyring, no desktop session) has no ssh-agent running at all,
+  # so every git/ssh invocation either starts its own throwaway agent with
+  # nothing cached or fails to find one, and the key passphrase is prompted
+  # every time. This starts a systemd --user service that lives across
+  # shells (see the lingering activation script below for surviving across
+  # SSH sessions too), and home-manager wires SSH_AUTH_SOCK into
+  # programs.zsh automatically. macOS is unaffected (isDarwin = true there):
+  # it already gets a persistent agent for free via launchd + Keychain
+  # (UseKeychain above), so this would just add a redundant agent process.
+  services.ssh-agent.enable = !isDarwin;
+
+  # Linux-only: without lingering, systemd-logind stops the user's systemd
+  # --user instance (and every unit in it, including ssh-agent above) as
+  # soon as the last login session for that user closes. On a headless
+  # server every SSH connection is its own session, so without this the
+  # agent - and any key added to it - is wiped between SSH connections and
+  # the passphrase prompt reappears every single time, exactly as if
+  # services.ssh-agent above did nothing. enable-linger takes effect
+  # immediately for the current user (no sudo, no reboot, no re-login) and
+  # is idempotent to rerun.
+  home.activation.enableSshAgentLinger = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+    if isDarwin then
+      ""
+    else
+      ''
+        # Absolute path: loginctl ships with the host's systemd, not Nix, and
+        # activation runs with a curated PATH that does not include /usr/bin.
+        if [ -x /usr/bin/loginctl ]; then
+          ''${DRY_RUN_CMD:-} /usr/bin/loginctl enable-linger "$(id -un)" ||
+            echo "WARNING: loginctl enable-linger failed - ssh-agent will not survive across SSH sessions" >&2
+        else
+          echo "WARNING: /usr/bin/loginctl not found - skipping enable-linger; ssh-agent will not survive across SSH sessions" >&2
+        fi
+      ''
+  );
+
   # ~/.ssh/config itself is NOT managed - Colima and other tools rewrite it
   # freely, and rebuild must never overwrite or regenerate it. Instead we
   # symlink two dotfiles-owned fragments and idempotently Include them (see
