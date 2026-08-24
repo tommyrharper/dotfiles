@@ -68,15 +68,14 @@ in
       bindkey '^G' ai-fill-buffer
 
       private_env="$HOME/.dotfiles/home/.config/zsh/private-env.zsh"
-      unset HETZNER_HOST
+      unset HETZNER_HOST HETZNER_PRIVATE_HOST
       if [[ -r "$private_env" ]]; then
         source "$private_env"
+        if [[ -n "''${HETZNER_HOST:-}" ]]; then
+          HETZNER_PRIVATE_HOST="$HETZNER_HOST"
+        fi
       fi
       unset private_env
-
-      if [[ -n "''${HETZNER_HOST:-}" ]]; then
-        alias hetzner="ssh root@$HETZNER_HOST"
-      fi
     '';
     shellAliases = {
       ".." = "cd ..";
@@ -87,6 +86,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex -s workspace-write -a never";
       gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
+      hetzner = "if [[ -z $HETZNER_PRIVATE_HOST ]]; then echo 'hetzner: HETZNER_HOST not set (private env file missing or empty)' >&2; else ssh root@$HETZNER_PRIVATE_HOST; fi";
 
       # One-shot, no tools
       askclaude = ''claude -p --tools=""'';
