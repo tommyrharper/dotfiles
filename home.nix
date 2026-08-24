@@ -83,7 +83,7 @@ in
       cc = "claude --dangerously-skip-permissions";
       co = "codex -s workspace-write -a never";
       gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
-      hetzner = ''[[ -n "$HETZNER_HOST" ]] && ssh root@$HETZNER_HOST || echo "HETZNER_HOST not set (private env not loaded)" >&2'';
+      hetzner = ''if [[ -n "$HETZNER_HOST" ]]; then ssh root@$HETZNER_HOST; else echo "HETZNER_HOST not set (private env not loaded)" >&2; fi'';
 
       # One-shot, no tools
       askclaude = ''claude -p --tools=""'';
