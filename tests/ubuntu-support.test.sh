@@ -14,11 +14,11 @@ set -u
 
 FLAKE_USER=thomasharper
 
-# Pinned at the moment Ubuntu support was layered on top of the tools.nix
-# refactor (PR #17, merged as 51fe4b7). Update this only alongside a
-# deliberate macOS-affecting change; an unexpected mismatch means something
-# meant to be Linux-only leaked into the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/182wiayrj1rg3csnylcyjsfsmzsplmrp-darwin-system-26.05.adda04f.drv"
+# Pinned after the deliberate macOS-affecting Approach B Hetzner shell alias
+# change. Update this only alongside a deliberate macOS-affecting change; an
+# unexpected mismatch means something meant to be Linux-only leaked into the
+# shared macOS evaluation.
+EXPECTED_DARWIN_DRVPATH="/nix/store/09vqh0fjs0346pzyigpygmsfjp2r80w2-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
