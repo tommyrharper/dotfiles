@@ -189,6 +189,25 @@ gnhf gnhf"
   pass "claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
+test_herdr_integrations_run_after_native_install_on_linux() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for herdr integration activation order check"
+    return 0
+  fi
+  local system after
+  for system in x86_64-linux aarch64-linux; do
+    after=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installHerdrAgentIntegrations activation dependencies failed to evaluate"
+    assert_contains "$after" "\"installNativeTools\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" must run installHerdrAgentIntegrations after installNativeTools so fresh Ubuntu activations install herdr before installing its agent integrations"
+  done
+  after=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+    || fail "darwinConfigurations.mac installHerdrAgentIntegrations activation dependencies failed to evaluate"
+  assert_not_contains "$after" "\"installNativeTools\"" \
+    "darwinConfigurations.mac must not depend on the Linux-only installNativeTools activation entry"
+  pass "herdr agent integrations run after native herdr installation on Linux without adding a Darwin dependency"
+}
+
 test_linux_archive_tools_present_for_native_installers() {
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found for Linux archive-tools check"
@@ -481,6 +500,7 @@ test_linux_home_manager_cli_enabled
 test_linux_treesitter_buildtools_present
 test_linux_nodejs_present_for_npm_backed_native_tools
 test_linux_native_install_tools_wired
+test_herdr_integrations_run_after_native_install_on_linux
 test_linux_archive_tools_present_for_native_installers
 test_linux_native_install_fault_isolation
 test_darwin_native_install_absent

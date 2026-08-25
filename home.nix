@@ -19,6 +19,8 @@ let
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no
   # such system-level list, so home.packages is the only place to add them.
   linuxNixTools = map (t: pkgs.${sel.nixName t}) sel.nixTools;
+  herdrIntegrationActivationDependencies =
+    [ "writeBoundary" ] ++ lib.optional (!isDarwin) "installNativeTools";
 in
 
 {
@@ -281,7 +283,7 @@ in
   # installNativeTools on Ubuntu - and activation runs with a curated PATH
   # that includes neither by default, so both are added explicitly (same
   # lesson as loginctl above: never assume a bare command resolves here).
-  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter herdrIntegrationActivationDependencies ''
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     if command -v herdr >/dev/null 2>&1; then
       for target in claude codex pi; do
