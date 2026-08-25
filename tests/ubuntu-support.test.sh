@@ -122,6 +122,35 @@ test_linux_nodejs_present_for_npm_backed_native_tools() {
   pass "nodejs is wired into home.packages for both Linux homeConfigurations outputs"
 }
 
+test_linux_npm_config_prefix_exported() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for NPM_CONFIG_PREFIX check"
+    return 0
+  fi
+  # installNativeTools exports NPM_CONFIG_PREFIX only inside its own
+  # activation script, so without this every normal shell still resolves
+  # `npm root -g` to the read-only /nix/store nodejs prefix instead of
+  # ~/.local/lib/node_modules where skills/gnhf/pi actually live - which is
+  # exactly how tests/pi-calm.test.sh ended up silently skipping every
+  # sub-check, and why a hand-written (unmanaged) ~/.npmrc was needed on the
+  # box. home.sessionVariables lands it in hm-session-vars.sh, which zsh
+  # sources from .zshenv, so it holds for every shell after a fresh
+  # bootstrap. It must stay Linux-only: macOS gets these tools via Homebrew.
+  local system value names
+  for system in x86_64-linux aarch64-linux; do
+    value=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.NPM_CONFIG_PREFIX" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not set home.sessionVariables.NPM_CONFIG_PREFIX - npm root -g in a normal shell would resolve to the read-only Nix store prefix, not ~/.local"
+    [ "$value" = "/home/${FLAKE_USER}/.local" ] \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" NPM_CONFIG_PREFIX must be /home/${FLAKE_USER}/.local to match installNativeTools' own export and home.sessionPath's ~/.local/bin, got: $value"
+  done
+
+  names=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" --apply 'builtins.attrNames' 2>/dev/null) \
+    || fail "darwinConfigurations.mac home.sessionVariables failed to evaluate"
+  assert_not_contains "$names" "NPM_CONFIG_PREFIX" \
+    "darwinConfigurations.mac must not get NPM_CONFIG_PREFIX at all - macOS installs these tools via Homebrew. Note home.sessionVariables is a lazyAttrsOf, so gating a leaf attribute with lib.mkIf false leaves it present-but-null here rather than removing it; gate the whole attrset with lib.optionalAttrs instead"
+  pass "NPM_CONFIG_PREFIX is exported as ~/.local for both Linux homeConfigurations outputs and entirely absent on darwinConfigurations.mac"
+}
+
 test_linux_native_install_tools_wired() {
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found for Linux native-install check"
@@ -699,6 +728,7 @@ test_linux_home_configurations_evaluate
 test_linux_home_manager_cli_enabled
 test_linux_treesitter_buildtools_present
 test_linux_nodejs_present_for_npm_backed_native_tools
+test_linux_npm_config_prefix_exported
 test_linux_native_install_tools_wired
 test_herdr_integrations_run_after_native_install_on_linux
 test_linux_archive_tools_present_for_native_installers

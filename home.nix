@@ -90,7 +90,12 @@ in
             # NPM_CONFIG_PREFIX: nodejs's own npm prefix lives in the
             # read-only /nix/store, so a plain `npm install -g` would fail;
             # pointing it at ~/.local lands binaries in $HOME/.local/bin,
-            # same as every other native install here.
+            # same as every other native install here. Still required even
+            # though home.sessionVariables now exports the same value: the
+            # generated activate script runs with its own curated env and
+            # never sources hm-session-vars.sh (verified - no EDITOR or
+            # CLICOLOR in it either), so nothing from sessionVariables is in
+            # scope here. Keep both in sync.
             export CODEX_NON_INTERACTIVE=1
             export NPM_CONFIG_PREFIX="$HOME/.local"
             set -o pipefail
@@ -114,7 +119,7 @@ in
   # own installer, above) is actually reachable after a shell restart.
   home.sessionPath = lib.optionals (!isDarwin) [ "${config.home.homeDirectory}/.local/bin" ];
   fonts.fontconfig.enable = true;
-  # optionalAttrs, not lib.mkIf, for the Linux-only entry: this option is a
+  # optionalAttrs, not lib.mkIf, for the Linux-only entries: this option is a
   # lazyAttrsOf, so a `mkIf false` leaf leaves the attribute present-but-null
   # in the macOS evaluation instead of removing it.
   home.sessionVariables = {
@@ -126,6 +131,15 @@ in
     # not look there by itself. `$(id -u)` is expanded when hm-session-vars.sh
     # is sourced, so it stays correct for whichever uid the shell runs as.
     DOCKER_HOST = "unix:///run/user/$(id -u)/docker.sock";
+    # Same prefix installNativeTools uses above, but exported into every
+    # shell so an interactive `npm root -g` / `npm install -g` agrees with
+    # where the npm-backed tools actually live. Without it npm resolves the
+    # global prefix from its own read-only /nix/store nodejs, which broke
+    # tests/pi-calm.test.sh's `$(npm root -g)` lookup (it silently skipped
+    # every sub-check) and was worked around by a hand-written ~/.npmrc -
+    # an unmanaged file no fresh bootstrap would have. Replaces that.
+    # macOS gets these tools from Homebrew and must stay untouched.
+    NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.local";
   };
 
   programs.zsh = {
