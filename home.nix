@@ -114,8 +114,19 @@ in
   # own installer, above) is actually reachable after a shell restart.
   home.sessionPath = lib.optionals (!isDarwin) [ "${config.home.homeDirectory}/.local/bin" ];
   fonts.fontconfig.enable = true;
-  home.sessionVariables.EDITOR = "nvim";
-  home.sessionVariables.CLICOLOR = "1";
+  # optionalAttrs, not lib.mkIf, for the Linux-only entry: this option is a
+  # lazyAttrsOf, so a `mkIf false` leaf leaves the attribute present-but-null
+  # in the macOS evaluation instead of removing it.
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    CLICOLOR = "1";
+  } // lib.optionalAttrs (!isDarwin) {
+    # The rootless daemon (see systemd.user.services.docker below) listens on
+    # $XDG_RUNTIME_DIR/docker.sock, not /var/run/docker.sock, and the CLI does
+    # not look there by itself. `$(id -u)` is expanded when hm-session-vars.sh
+    # is sourced, so it stays correct for whichever uid the shell runs as.
+    DOCKER_HOST = "unix:///run/user/$(id -u)/docker.sock";
+  };
 
   programs.zsh = {
     enable = true;
@@ -294,6 +305,29 @@ in
       echo "WARNING: herdr not found on PATH - skipping agent integration install" >&2
     fi
   '';
+
+  # Linux-only: Docker as a rootless systemd --user daemon. `pkgs.docker`
+  # (home.packages above) ships dockerd-rootless plus the rootlesskit,
+  # slirp4netns, and fuse-overlayfs it needs, so the only piece Nix cannot
+  # supply is setuid /usr/bin/newuidmap - rootlesskit execs it by name to
+  # apply this user's /etc/subuid range, and a Nix store binary can never be
+  # setuid. That one package (Ubuntu's `uidmap`) is installed by
+  # bootstrap.sh's root step; without it this unit starts and immediately
+  # dies with "newuidmap: executable file not found in $PATH". Lingering is
+  # enabled above, which is also what keeps this daemon alive between SSH
+  # sessions. macOS gets Docker from Colima (tools.nix), not from here.
+  systemd.user.services.docker = lib.mkIf (!isDarwin) {
+    Unit.Description = "Rootless Docker daemon";
+    Service = {
+      ExecStart = "${pkgs.docker}/bin/dockerd-rootless";
+      Restart = "on-failure";
+      # Rootless dockerd needs its own delegated cgroup subtree to apply any
+      # per-container resource limit at all.
+      Delegate = "yes";
+      LimitNOFILE = 1048576;
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 
   # ~/.ssh/config itself is NOT managed - Colima and other tools rewrite it
   # freely, and rebuild must never overwrite or regenerate it. Instead we

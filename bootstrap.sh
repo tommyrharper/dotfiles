@@ -117,7 +117,7 @@ else
   # services.ssh-agent module only injects that export into the shells it
   # manages. The systemd ssh-agent runs, but bash can't see it, so every
   # git pull re-prompts for the key passphrase. macOS already logs into zsh,
-  # hence Linux-only. This is the one step here that needs sudo.
+  # hence Linux-only. This and step 6 are the only steps here needing sudo.
   ZSH_BIN="$HOME/.nix-profile/bin/zsh"
   CURRENT_SHELL="$(getent passwd "$REAL_USER" | cut -d: -f7)"
   if [ "$CURRENT_SHELL" = "$ZSH_BIN" ]; then
@@ -128,10 +128,10 @@ else
     echo "    WARNING: $ZSH_BIN does not start - leaving the login shell as $CURRENT_SHELL" >&2
   else
     # chsh rejects any shell missing from /etc/shells. Fault-isolated on
-    # purpose: this is the only step in the Linux branch that needs sudo, and
-    # everything above it has already succeeded by now - a box where sudo is
-    # absent or denied should get a warning plus the command to run by hand,
-    # not a set -e abort that reads as "the whole bootstrap failed".
+    # purpose: this step needs sudo, and everything above it has already
+    # succeeded by now - a box where sudo is absent or denied should get a
+    # warning plus the command to run by hand, not a set -e abort that reads
+    # as "the whole bootstrap failed".
     if { grep -qxF "$ZSH_BIN" /etc/shells \
            || echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null; } \
        && sudo chsh -s "$ZSH_BIN" "$REAL_USER"; then
@@ -142,6 +142,24 @@ else
       echo "    and every git pull will re-prompt for your key passphrase:" >&2
       echo "      echo $ZSH_BIN | sudo tee -a /etc/shells && sudo chsh -s $ZSH_BIN $REAL_USER" >&2
     fi
+  fi
+
+  echo "==> Step 6: uidmap, for the rootless Docker daemon home.nix runs"
+  # home.nix runs dockerd-rootless as a systemd --user service. Everything it
+  # needs comes from pkgs.docker except setuid newuidmap/newgidmap:
+  # rootlesskit execs them by name to apply this user's /etc/subuid range,
+  # and a Nix store binary can never be setuid, so this one package has to
+  # come from apt as root. Fault-isolated like step 5 - a box without sudo
+  # should get the command to run by hand, not a failed bootstrap.
+  if command -v newuidmap >/dev/null 2>&1; then
+    echo "    newuidmap already present, nothing to do"
+  elif sudo apt-get install -y uidmap; then
+    echo "    uidmap installed - rootless Docker can map subuids now"
+  else
+    echo "    WARNING: could not install uidmap - this step needs sudo." >&2
+    echo "    Until you run the following, the rootless Docker daemon will" >&2
+    echo "    fail to start with \"newuidmap: executable file not found\":" >&2
+    echo "      sudo apt-get install -y uidmap" >&2
   fi
 fi
 
