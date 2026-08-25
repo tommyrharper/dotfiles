@@ -191,7 +191,7 @@ With it, the first switch moves each conflicting file to `<name>.before-home-man
 
 **About `herdr`:** it's a `scope = "basic"` entry in `tools.nix`.
 It's a real public Homebrew formula (`brew info herdr` finds it in homebrew-core, no tap needed), so it will install fine on macOS.
-If you don't use it, just remove its entry from `tools.nix` in your copy.
+If you don't use it, remove its entry from `tools.nix` and the matching `installHerdrAgentIntegrations` activation block from `home.nix` in your copy.
 `herdr` has no built-in declarative way to enable its Claude/Codex/Pi agent integrations (`herdr integration --help` shows only an imperative `install <target>` subcommand), so `home.nix`'s `installHerdrAgentIntegrations` activation script runs `herdr integration install claude/codex/pi` on every rebuild, on both platforms - the install is idempotent (safe to re-run, exits 0 whether or not the target agent's own CLI is present) and each run is fault-isolated with a `WARNING:` so one failing target never blocks the others. It resolves `herdr` off an explicit PATH (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`) rather than assuming activation's curated PATH already has it - see the `loginctl` comment on `enableSshAgentLinger` for why. Its Pi hook lands inside `~/.pi/agent/extensions`, which is a tracked, symlinked directory in this repo, so the generated `herdr-agent-state.ts` is gitignored rather than committed - it's regenerated fresh every rebuild.
 
 **About `gnhf`:** it's a `scope = "basic"` entry in `tools.nix`.
