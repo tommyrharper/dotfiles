@@ -483,6 +483,168 @@ test_bootstrap_sets_zsh_login_shell_on_linux() {
   pass "bootstrap.sh switches the Linux login shell to the Nix zsh, refuses to do so if that zsh will not start, and is a no-op once switched"
 }
 
+test_linux_rootless_docker_service() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for rootless Docker check"
+    return 0
+  fi
+  # Docker on Linux is a rootless `systemd --user` daemon, not the usual
+  # root /var/run/docker.sock one: the ExecStart must be pkgs.docker's own
+  # dockerd-rootless (the same package home.packages installs the CLI from,
+  # so daemon and client never drift), and DOCKER_HOST has to point the CLI
+  # at the per-uid socket it actually listens on, or every `docker` command
+  # silently talks to a root socket that isn't there. See README.md
+  # ("Rootless Docker").
+  local system docker_path exec_start wanted_by docker_host names
+  for system in x86_64-linux aarch64-linux; do
+    docker_path=$(cd "$ROOT" && nix eval --raw --impure --expr "
+      let
+        flake = builtins.getFlake \"path:$ROOT\";
+        pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
+      in pkgs.docker
+    " 2>/dev/null) \
+      || fail "pkgs.docker failed to evaluate for $system"
+
+    exec_start=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Service.ExecStart" \
+      --apply 'e: if builtins.isList e then builtins.concatStringsSep " " e else e' 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no systemd --user docker service - rootless Docker needs a unit, not just the package"
+    [ "$exec_start" = "$docker_path/bin/dockerd-rootless" ] \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit must ExecStart $docker_path/bin/dockerd-rootless (the rootless entry point of the same pkgs.docker home.packages installs), got: $exec_start"
+
+    wanted_by=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Install.WantedBy" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit has no Install.WantedBy"
+    assert_contains "$wanted_by" "default.target" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit must start on login (WantedBy default.target); enableSshAgentLinger's loginctl enable-linger is what then keeps it alive between SSH sessions"
+
+    docker_host=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.DOCKER_HOST" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not set DOCKER_HOST - the rootless daemon listens on the per-uid runtime socket and the CLI does not look there by itself"
+    [ "$docker_host" = 'unix:///run/user/$(id -u)/docker.sock' ] \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" DOCKER_HOST must be unix:///run/user/\$(id -u)/docker.sock, expanded at hm-session-vars.sh source time so it stays correct for whichever uid the shell runs as, got: $docker_host"
+
+    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+      --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
+    assert_contains "$names" "\"docker\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing the docker CLI that DOCKER_HOST points at"
+    assert_contains "$names" "\"uv\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing uv (tools.nix's platform = \"ubuntu\" entry)"
+  done
+  pass "both Linux homeConfigurations outputs run pkgs.docker's dockerd-rootless as a systemd --user unit, set DOCKER_HOST to the per-uid socket, and carry uv"
+}
+
+test_darwin_rootless_docker_absent() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for Darwin rootless Docker absence check"
+    return 0
+  fi
+  # macOS gets Docker from Colima (tools.nix), and has no systemd at all.
+  # DOCKER_HOST is checked by attribute name, not value: home.sessionVariables
+  # is a lazyAttrsOf, so gating a leaf with `lib.mkIf` leaves the attribute
+  # present-but-null here rather than removing it - hence home.nix's
+  # lib.optionalAttrs. Same for uv, which is deliberately platform = "ubuntu".
+  local units session_vars names
+  units=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.systemd.user.services" \
+    --apply 'a: builtins.attrNames a' 2>/dev/null) \
+    || fail "darwinConfigurations.mac systemd.user.services failed to evaluate"
+  assert_not_contains "$units" "\"docker\"" \
+    "darwinConfigurations.mac must not get the Linux-only rootless Docker systemd unit - macOS has no systemd and gets Docker from Colima"
+
+  session_vars=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" \
+    --apply 'a: builtins.attrNames a' 2>/dev/null) \
+    || fail "darwinConfigurations.mac home.sessionVariables failed to evaluate"
+  assert_not_contains "$session_vars" "DOCKER_HOST" \
+    "darwinConfigurations.mac must not define DOCKER_HOST at all - Colima writes its own, and a stray null attribute here is exactly what lib.mkIf on a lazyAttrsOf leaf would leave behind"
+
+  names=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.packages" \
+    --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+    || fail "darwinConfigurations.mac home.packages failed to evaluate"
+  assert_not_contains "$names" "\"uv\"" \
+    "darwinConfigurations.mac must not pick up uv - it is a tools.nix platform = \"ubuntu\" entry, and adding it to the macOS package set would move the pinned drvPath"
+  pass "darwinConfigurations.mac gets no docker systemd unit, no DOCKER_HOST, and no uv"
+}
+
+# Extracts bootstrap.sh's Linux-only uidmap step (its `if command -v newuidmap`
+# through the closing fi) and runs it against a stubbed sudo/newuidmap, so the
+# skip and the no-sudo fallback are exercised, not just grepped. PATH is
+# replaced outright, never prepended, so `command -v newuidmap` can only ever
+# find the stub - the host running these tests very likely has a real one.
+run_bootstrap_uidmap_block() {
+  local home=$1 newuidmap_present=$2 sudo_ok=$3 log=$4 block stub
+  block=$(awk '/^  if command -v newuidmap/,/^  fi$/' "$ROOT/bootstrap.sh")
+  [ -n "$block" ] || fail "bootstrap.sh no longer contains the uidmap step"
+
+  stub="$home/stubs"
+  mkdir -p "$stub"
+  if [ "$sudo_ok" = yes ]; then
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\n' "$log" > "$stub/sudo"
+  else
+    printf '#!/bin/sh\nprintf "sudo %%s\\n" "$*" >> "%s"\necho "sudo: a password is required" >&2\nexit 1\n' "$log" > "$stub/sudo"
+  fi
+  chmod +x "$stub/sudo"
+  if [ "$newuidmap_present" = yes ]; then
+    printf '#!/bin/sh\nexit 0\n' > "$stub/newuidmap"
+    chmod +x "$stub/newuidmap"
+  fi
+
+  # bootstrap.sh runs under `set -euo pipefail`, so the block has to be
+  # exercised under it too - that is the only way a step that aborts the
+  # whole bootstrap is distinguishable from one that warns and carries on.
+  # /bin/bash by absolute path: PATH is replaced with the stub dir alone, so
+  # a bare `bash` would no longer resolve.
+  HOME="$home" PATH="$stub" /bin/bash -euo pipefail -c "$block" 2>&1
+  printf 'exit:%s\n' "$?"
+}
+
+test_bootstrap_installs_uidmap_on_linux() {
+  # home.nix's rootless docker unit needs setuid newuidmap to apply this
+  # user's /etc/subuid range, and a Nix store binary can never be setuid - so
+  # that one package has to come from apt as root, and cannot move into
+  # tools.nix/home.packages. See AGENTS.md and README.md ("Rootless Docker").
+  local home log out
+
+  home=$(dotfiles_test_tmproot dotfiles-uidmap-install)
+  log="$home/calls"
+  out=$(run_bootstrap_uidmap_block "$home" no yes "$log")
+  assert_contains "$(cat "$log" 2>/dev/null)" "sudo apt-get install -y uidmap" \
+    "bootstrap.sh must apt-get install uidmap when newuidmap is missing - home-manager cannot supply a setuid newuidmap, so the rootless Docker unit dies at startup without it (got: $out)"
+  assert_contains "$out" "exit:0" \
+    "bootstrap.sh's uidmap step must succeed when sudo works (got: $out)"
+
+  # Idempotent: a box that already has uidmap must not re-run apt-get.
+  home=$(dotfiles_test_tmproot dotfiles-uidmap-noop)
+  log="$home/calls"
+  out=$(run_bootstrap_uidmap_block "$home" yes yes "$log")
+  assert_not_contains "$(cat "$log" 2>/dev/null)" "apt-get" \
+    "bootstrap.sh must skip the uidmap install when newuidmap is already present (got: $out)"
+  assert_contains "$out" "exit:0" \
+    "bootstrap.sh's uidmap step must exit cleanly when there is nothing to do (got: $out)"
+
+  # Fault-isolated exactly like the login-shell step: every earlier step has
+  # already succeeded by now, so `set -euo pipefail` must not turn a missing
+  # or denied sudo into what reads as a total bootstrap failure.
+  home=$(dotfiles_test_tmproot dotfiles-uidmap-nosudo)
+  log="$home/calls"
+  out=$(run_bootstrap_uidmap_block "$home" no no "$log")
+  assert_contains "$out" "exit:0" \
+    "bootstrap.sh must not abort under set -e when sudo is unavailable for the uidmap install (got: $out)"
+  assert_contains "$out" "WARNING" \
+    "bootstrap.sh must warn loudly when it could not install uidmap (got: $out)"
+  assert_contains "$out" "sudo apt-get install -y uidmap" \
+    "bootstrap.sh must print the exact command to run by hand when it could not install uidmap itself (got: $out)"
+  pass "bootstrap.sh installs uidmap for rootless Docker, skips it when already present, and warns with the manual command instead of aborting when sudo is unavailable"
+}
+
+test_darwin_uidmap_step_absent() {
+  # macOS has no apt-get and gets Docker from Colima; the uidmap step must
+  # stay inside the Linux branch, which bootstrap.sh's else-branch gives free.
+  local darwin_branch
+  darwin_branch=$(awk '/^if \[ "\$PLATFORM" = darwin \]; then$/,/^else$/' "$ROOT/bootstrap.sh")
+  [ -n "$darwin_branch" ] || fail "bootstrap.sh no longer has a darwin branch to check"
+  assert_not_contains "$darwin_branch" "uidmap" \
+    "bootstrap.sh must not run the uidmap step on macOS - there is no apt-get, and Docker comes from Colima there"
+  pass "bootstrap.sh's macOS branch has no uidmap step"
+}
+
 test_darwin_login_shell_untouched() {
   # macOS already logs into zsh; the chsh/sudo step must stay in the Linux
   # branch, which the else-branch structure of bootstrap.sh gives for free.
@@ -509,3 +671,7 @@ test_linux_ssh_agent_lingers_across_sessions
 test_darwin_ssh_agent_not_duplicated
 test_bootstrap_sets_zsh_login_shell_on_linux
 test_darwin_login_shell_untouched
+test_linux_rootless_docker_service
+test_darwin_rootless_docker_absent
+test_bootstrap_installs_uidmap_on_linux
+test_darwin_uidmap_step_absent

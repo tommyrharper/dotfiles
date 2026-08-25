@@ -61,6 +61,12 @@
   { name = "gnumake"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "pkg-config"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
+  # Ubuntu-only: the Python project runners used on the Linux box are all
+  # `uv run`/`uv sync` based. Deliberately not `platform = "all"` - the Mac
+  # doesn't need it, and adding it there would change the macOS package set
+  # (and the drvPath pinned in tests/ubuntu-support.test.sh) for nothing.
+  { name = "uv"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
+
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
   { name = "thefuck"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
