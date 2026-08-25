@@ -27,10 +27,16 @@ FLAKE_USER=thomasharper
 # its script body is the empty string on Darwin (isDarwin branch), registering
 # the activation entry at all still shifts the generated activation script
 # text, so the drvPath moves even though nothing runs differently on macOS.
+# Re-pinned again after adding installHerdrAgentIntegrations (home.nix): this
+# one runs its `herdr integration install` loop identically on both
+# platforms (herdr is a platform = "all" tool in tools.nix, and the install
+# step behaves the same everywhere), so unlike the Linux-only entries above
+# this deliberately changes real macOS activation behavior, not just the
+# generated script text.
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/dh583y8xjwc2519g5gdbrahlgjin0q5k-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/ysn1zipvfmmlhnjjlfkkfbp831hx4ccc-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
