@@ -19,6 +19,8 @@ let
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no
   # such system-level list, so home.packages is the only place to add them.
   linuxNixTools = map (t: pkgs.${sel.nixName t}) sel.nixTools;
+  herdrIntegrationActivationDependencies =
+    [ "writeBoundary" ] ++ lib.optional (!isDarwin) "installNativeTools";
 in
 
 {
@@ -267,6 +269,31 @@ in
         fi
       ''
   );
+
+  # herdr has no built-in declarative/config-file way to enable its agent
+  # integrations (confirmed via `herdr integration --help`: install is the
+  # only path) - so this runs the same `herdr integration install <target>`
+  # a user would type by hand, on every rebuild, so it survives across
+  # machines instead of being a manual one-off. `herdr integration install`
+  # is itself idempotent (re-running it just overwrites the hook file with
+  # the current version) and always exits 0 whether or not the target
+  # agent's own CLI is present, so no pre-check for that is needed here.
+  # herdr itself is declared in tools.nix (platform = "all") but lands in a
+  # different place per OS - Homebrew on macOS, $HOME/.local/bin via
+  # installNativeTools on Ubuntu - and activation runs with a curated PATH
+  # that includes neither by default, so both are added explicitly (same
+  # lesson as loginctl above: never assume a bare command resolves here).
+  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter herdrIntegrationActivationDependencies ''
+    export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    if command -v herdr >/dev/null 2>&1; then
+      for target in claude codex pi; do
+        ''${DRY_RUN_CMD:-} herdr integration install "$target" >/dev/null 2>&1 ||
+          echo "WARNING: herdr integration install $target failed - continuing" >&2
+      done
+    else
+      echo "WARNING: herdr not found on PATH - skipping agent integration install" >&2
+    fi
+  '';
 
   # ~/.ssh/config itself is NOT managed - Colima and other tools rewrite it
   # freely, and rebuild must never overwrite or regenerate it. Instead we

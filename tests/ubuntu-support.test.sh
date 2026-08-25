@@ -27,10 +27,16 @@ FLAKE_USER=thomasharper
 # its script body is the empty string on Darwin (isDarwin branch), registering
 # the activation entry at all still shifts the generated activation script
 # text, so the drvPath moves even though nothing runs differently on macOS.
+# Re-pinned again after adding installHerdrAgentIntegrations (home.nix): this
+# one runs its `herdr integration install` loop identically on both
+# platforms (herdr is a platform = "all" tool in tools.nix, and the install
+# step behaves the same everywhere), so unlike the Linux-only entries above
+# this deliberately changes real macOS activation behavior, not just the
+# generated script text.
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/dh583y8xjwc2519g5gdbrahlgjin0q5k-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/ysn1zipvfmmlhnjjlfkkfbp831hx4ccc-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -181,6 +187,25 @@ gnhf gnhf"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
   pass "claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+}
+
+test_herdr_integrations_run_after_native_install_on_linux() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for herdr integration activation order check"
+    return 0
+  fi
+  local system after
+  for system in x86_64-linux aarch64-linux; do
+    after=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installHerdrAgentIntegrations activation dependencies failed to evaluate"
+    assert_contains "$after" "\"installNativeTools\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" must run installHerdrAgentIntegrations after installNativeTools so fresh Ubuntu activations install herdr before installing its agent integrations"
+  done
+  after=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+    || fail "darwinConfigurations.mac installHerdrAgentIntegrations activation dependencies failed to evaluate"
+  assert_not_contains "$after" "\"installNativeTools\"" \
+    "darwinConfigurations.mac must not depend on the Linux-only installNativeTools activation entry"
+  pass "herdr agent integrations run after native herdr installation on Linux without adding a Darwin dependency"
 }
 
 test_linux_archive_tools_present_for_native_installers() {
@@ -475,6 +500,7 @@ test_linux_home_manager_cli_enabled
 test_linux_treesitter_buildtools_present
 test_linux_nodejs_present_for_npm_backed_native_tools
 test_linux_native_install_tools_wired
+test_herdr_integrations_run_after_native_install_on_linux
 test_linux_archive_tools_present_for_native_installers
 test_linux_native_install_fault_isolation
 test_darwin_native_install_absent
