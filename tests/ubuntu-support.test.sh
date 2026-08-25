@@ -32,11 +32,15 @@ FLAKE_USER=thomasharper
 # platforms (herdr is a platform = "all" tool in tools.nix, and the install
 # step behaves the same everywhere), so unlike the Linux-only entries above
 # this deliberately changes real macOS activation behavior, not just the
-# generated script text.
+# generated script text. Re-pinned again after uv moved from
+# platform = "ubuntu" to platform = "all" in tools.nix, which makes useNix
+# select it for macOS too and so legitimately adds pkgs.uv to
+# configuration.nix's environment.systemPackages (see
+# test_uv_selected_on_both_platforms below).
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/ysn1zipvfmmlhnjjlfkkfbp831hx4ccc-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/sljlp4q10g0jfbinqc2f2xmdm775n7f5-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -526,10 +530,8 @@ test_linux_rootless_docker_service() {
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"docker\"" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing the docker CLI that DOCKER_HOST points at"
-    assert_contains "$names" "\"uv\"" \
-      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing uv (tools.nix's platform = \"ubuntu\" entry)"
   done
-  pass "both Linux homeConfigurations outputs run pkgs.docker's dockerd-rootless as a systemd --user unit, set DOCKER_HOST to the per-uid socket, and carry uv"
+  pass "both Linux homeConfigurations outputs run pkgs.docker's dockerd-rootless as a systemd --user unit and set DOCKER_HOST to the per-uid socket"
 }
 
 test_darwin_rootless_docker_absent() {
@@ -541,8 +543,8 @@ test_darwin_rootless_docker_absent() {
   # DOCKER_HOST is checked by attribute name, not value: home.sessionVariables
   # is a lazyAttrsOf, so gating a leaf with `lib.mkIf` leaves the attribute
   # present-but-null here rather than removing it - hence home.nix's
-  # lib.optionalAttrs. Same for uv, which is deliberately platform = "ubuntu".
-  local units session_vars names
+  # lib.optionalAttrs.
+  local units session_vars
   units=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.systemd.user.services" \
     --apply 'a: builtins.attrNames a' 2>/dev/null) \
     || fail "darwinConfigurations.mac systemd.user.services failed to evaluate"
@@ -555,12 +557,48 @@ test_darwin_rootless_docker_absent() {
   assert_not_contains "$session_vars" "DOCKER_HOST" \
     "darwinConfigurations.mac must not define DOCKER_HOST at all - Colima writes its own, and a stray null attribute here is exactly what lib.mkIf on a lazyAttrsOf leaf would leave behind"
 
-  names=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.packages" \
+  pass "darwinConfigurations.mac gets no docker systemd unit and no DOCKER_HOST"
+}
+
+test_uv_selected_on_both_platforms() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for uv selection check"
+    return 0
+  fi
+  # uv is platform = "all" + updatePolicy = "stable", so tool-selection.nix's
+  # useNix claims it on BOTH targets - but they arrive by different routes,
+  # and the macOS one is easy to get wrong: home.nix only appends nixTools on
+  # its Linux branch, so uv reaches macOS through configuration.nix's
+  # environment.systemPackages and is legitimately absent from the macOS
+  # home.packages. Asserting that absence would therefore hold no matter how
+  # uv were configured and would prove nothing; assert the real route instead.
+  local system names darwin_system_pkgs brews casks
+  for system in x86_64-linux aarch64-linux; do
+    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+      --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
+    assert_contains "$names" "\"uv\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing uv - useNix must select it into the Linux home.packages"
+  done
+
+  darwin_system_pkgs=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
     --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
-    || fail "darwinConfigurations.mac home.packages failed to evaluate"
-  assert_not_contains "$names" "\"uv\"" \
-    "darwinConfigurations.mac must not pick up uv - it is a tools.nix platform = \"ubuntu\" entry, and adding it to the macOS package set would move the pinned drvPath"
-  pass "darwinConfigurations.mac gets no docker systemd unit, no DOCKER_HOST, and no uv"
+    || fail "darwinConfigurations.mac environment.systemPackages failed to evaluate"
+  assert_contains "$darwin_system_pkgs" "\"uv\"" \
+    "darwinConfigurations.mac is missing uv from environment.systemPackages - that is the only route a platform = \"all\" Nix tool reaches macOS, since home.nix appends nixTools on its Linux branch only"
+
+  # Nix owns it on macOS, not Homebrew: useHomebrew only claims tools that are
+  # macOS-specific or fast-moving, so a stray uv here would mean someone
+  # changed its platform or updatePolicy rather than just its availability.
+  brews=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.homebrew.brews" 2>/dev/null) \
+    || fail "darwinConfigurations.mac homebrew.brews failed to evaluate"
+  casks=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.homebrew.casks" 2>/dev/null) \
+    || fail "darwinConfigurations.mac homebrew.casks failed to evaluate"
+  assert_not_contains "$brews" "\"uv\"" \
+    "darwinConfigurations.mac must get uv from Nix, not Homebrew - it is updatePolicy = \"stable\" and not macOS-specific"
+  assert_not_contains "$casks" "\"uv\"" \
+    "darwinConfigurations.mac must not install uv as a Homebrew cask"
+  pass "uv is selected by useNix for both platforms - Linux home.packages and macOS environment.systemPackages - and never via Homebrew"
 }
 
 # Extracts bootstrap.sh's Linux-only uidmap step (its `if command -v newuidmap`
@@ -673,5 +711,6 @@ test_bootstrap_sets_zsh_login_shell_on_linux
 test_darwin_login_shell_untouched
 test_linux_rootless_docker_service
 test_darwin_rootless_docker_absent
+test_uv_selected_on_both_platforms
 test_bootstrap_installs_uidmap_on_linux
 test_darwin_uidmap_step_absent

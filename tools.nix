@@ -47,6 +47,11 @@
   { name = "tree"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "wget"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "cmake"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # Python project runner. platform = "all" + updatePolicy = "stable" means
+  # useNix picks it on both targets: home.packages on Ubuntu,
+  # environment.systemPackages on macOS (never Homebrew - useHomebrew only
+  # claims macOS-specific or fast-moving tools).
+  { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
@@ -60,12 +65,6 @@
   { name = "gcc"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "gnumake"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "pkg-config"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
-
-  # Ubuntu-only: the Python project runners used on the Linux box are all
-  # `uv run`/`uv sync` based. Deliberately not `platform = "all"` - the Mac
-  # doesn't need it, and adding it there would change the macOS package set
-  # (and the drvPath pinned in tests/ubuntu-support.test.sh) for nothing.
-  { name = "uv"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
