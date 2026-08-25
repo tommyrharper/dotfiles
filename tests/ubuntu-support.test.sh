@@ -39,8 +39,10 @@ FLAKE_USER=thomasharper
 # test_uv_selected_on_both_platforms below).
 # Update this only alongside a deliberate macOS-affecting change; an
 # unexpected mismatch means something meant to be Linux-only leaked into
-# the shared macOS evaluation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/sljlp4q10g0jfbinqc2f2xmdm775n7f5-darwin-system-26.05.adda04f.drv"
+# the shared macOS evaluation. Re-pinned again after adding opencode to
+# tools.nix - a real new Homebrew formula in homebrew.brews, so this
+# legitimately changes darwin-system's derivation too.
+EXPECTED_DARWIN_DRVPATH="/nix/store/60gdl2swmmbw2pnlpn32m4f0hr0v8syd-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -166,7 +168,8 @@ codex codex
 herdr herdr
 skills skills
 pi-coding-agent pi
-gnhf gnhf"
+gnhf gnhf
+opencode opencode"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
     "Would install codex via https://chatgpt.com/codex/install.sh"
@@ -174,6 +177,7 @@ gnhf gnhf"
     "Would install skills via npm install -g skills"
     "Would install pi-coding-agent via https://pi.dev/install.sh"
     "Would install gnhf via npm install -g gnhf"
+    "Would install opencode via npm install -g opencode-ai"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
   for system in x86_64-linux aarch64-linux; do
@@ -190,7 +194,7 @@ gnhf gnhf"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, herdr, skills, pi-coding-agent, gnhf, and opencode's unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -210,7 +214,7 @@ gnhf gnhf"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex herdr skills pi gnhf; do
+    for bin_name in claude codex herdr skills pi gnhf opencode; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -219,7 +223,7 @@ gnhf gnhf"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, herdr, skills, pi-coding-agent, and gnhf's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "claude-code, codex, herdr, skills, pi-coding-agent, gnhf, and opencode's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {

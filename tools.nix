@@ -37,6 +37,12 @@
   # Homebrew's own dependency resolution); its own npm package of the same
   # name (bin: gnhf) covers Ubuntu the same way skills does.
   { name = "gnhf"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "gnhf"; }
+  # opencode's homebrew-core formula depends on node and ripgrep, resolved by
+  # Homebrew itself on macOS; its own install.sh installs to a fixed
+  # $HOME/.opencode/bin with no PATH-override env var, so it doesn't fit this
+  # loop's ~/.local/bin convention. Its npm package (opencode-ai, bin:
+  # opencode) covers Ubuntu the same way skills/gnhf do instead.
+  { name = "opencode"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "opencode-ai"; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
