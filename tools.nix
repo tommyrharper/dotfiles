@@ -43,6 +43,14 @@
   # loop's ~/.local/bin convention. Its npm package (opencode-ai, bin:
   # opencode) covers Ubuntu the same way skills/gnhf do instead.
   { name = "opencode"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "opencode-ai"; }
+  # no-mistakes has neither a Homebrew formula (`brew info no-mistakes` ->
+  # "No available formula", and the kunchenguid/homebrew-no-mistakes tap
+  # doesn't exist) nor an npm package - its only fresh-machine install path
+  # is its own install.sh. hasHomebrew = false tells tool-selection.nix's
+  # useHomebrew/useNative to route it through the native installer on macOS
+  # too, not just Ubuntu - the first platform=all/fast tool that needs that
+  # (see home.nix's installNativeTools, which now runs on both platforms).
+  { name = "no-mistakes"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"; hasHomebrew = false; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }

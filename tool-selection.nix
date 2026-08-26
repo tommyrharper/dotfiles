@@ -26,21 +26,33 @@ let
     && t.updatePolicy == "stable"
     && t.platform != "macos";
 
+  # Does this tool actually have a Homebrew formula/cask to install? Every
+  # entry defaults to true; no-mistakes is the first to set it false (no
+  # formula, no tap - see its tools.nix comment), which is what keeps it out
+  # of useHomebrew below instead of landing in homebrew.brews as a formula
+  # that doesn't exist.
+  hasHomebrew = t: t.hasHomebrew or true;
+
   # Decision 3b: on macOS, tools that apply to macOS use Homebrew when they
   # are either fast-moving or macOS-specific. A platform=all/updatePolicy=fast
   # tool is Homebrew-managed only because currentPlatform is "macos" right
-  # now, not because Homebrew is inherently "the" fast-package installer.
+  # now, not because Homebrew is inherently "the" fast-package installer -
+  # and only when the tool actually has a Homebrew formula/cask at all.
   useHomebrew = t:
     currentPlatform == "macos"
     && isForCurrentPlatform t
-    && (t.platform == "macos" || t.updatePolicy == "fast");
+    && (t.platform == "macos" || t.updatePolicy == "fast")
+    && hasHomebrew t;
 
-  # Decision 3c: on Ubuntu, fast-moving tools that apply there use a native
-  # installer instead of Homebrew (which doesn't exist on this path at all).
+  # Decision 3c: fast-moving tools use a native installer instead of Homebrew
+  # wherever Homebrew doesn't own them - always true on Ubuntu (no Homebrew on
+  # that path at all), and also true on macOS for the rare tool with no
+  # Homebrew formula (hasHomebrew = false), which useHomebrew above excludes.
   useNative = t:
-    currentPlatform == "ubuntu"
-    && isForCurrentPlatform t
-    && t.updatePolicy == "fast";
+    isForCurrentPlatform t
+    && t.updatePolicy == "fast"
+    && (currentPlatform == "ubuntu"
+        || (currentPlatform == "macos" && !hasHomebrew t));
 
   isCaskTool = t: t.isCask or false;
   brewName = t: t.brewName or t.name;
@@ -53,7 +65,7 @@ let
   nativeTools = lib.filter useNative enabled;
 in
 {
-  inherit isEnabled isForCurrentPlatform useNix useHomebrew useNative isCaskTool brewName nixName nativeInstallUrl nativeInstallNpmPackage nativeInstallBinName;
+  inherit isEnabled isForCurrentPlatform useNix useHomebrew useNative hasHomebrew isCaskTool brewName nixName nativeInstallUrl nativeInstallNpmPackage nativeInstallBinName;
   nixTools = lib.filter useNix enabled;
   brewTools = lib.filter (t: useHomebrew t && !isCaskTool t) enabled;
   caskTools = lib.filter (t: useHomebrew t && isCaskTool t) enabled;

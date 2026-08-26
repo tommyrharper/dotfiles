@@ -41,8 +41,15 @@ FLAKE_USER=thomasharper
 # unexpected mismatch means something meant to be Linux-only leaked into
 # the shared macOS evaluation. Re-pinned again after adding opencode to
 # tools.nix - a real new Homebrew formula in homebrew.brews, so this
-# legitimately changes darwin-system's derivation too.
-EXPECTED_DARWIN_DRVPATH="/nix/store/60gdl2swmmbw2pnlpn32m4f0hr0v8syd-darwin-system-26.05.adda04f.drv"
+# legitimately changes darwin-system's derivation too. Re-pinned again after
+# adding no-mistakes (platform = "all", updatePolicy = "fast", hasHomebrew =
+# false - it has no Homebrew formula at all): tool-selection.nix's
+# useHomebrew/useNative now also route a hasHomebrew = false tool through the
+# native installer on macOS, so home.nix's installNativeTools activation
+# script (previously gated lib.mkIf (!isDarwin)) now runs unconditionally on
+# both platforms, and home.sessionPath's ~/.local/bin entry is no longer
+# Linux-only either - both legitimately change darwin-system's derivation.
+EXPECTED_DARWIN_DRVPATH="/nix/store/2kcp19qnvk3msqahr3hq9lyb6djyam93-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -169,7 +176,8 @@ herdr herdr
 skills skills
 pi-coding-agent pi
 gnhf gnhf
-opencode opencode"
+opencode opencode
+no-mistakes no-mistakes"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
     "Would install codex via https://chatgpt.com/codex/install.sh"
@@ -178,6 +186,7 @@ opencode opencode"
     "Would install pi-coding-agent via https://pi.dev/install.sh"
     "Would install gnhf via npm install -g gnhf"
     "Would install opencode via npm install -g opencode-ai"
+    "Would install no-mistakes via https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
   for system in x86_64-linux aarch64-linux; do
@@ -214,7 +223,7 @@ opencode opencode"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex herdr skills pi gnhf opencode; do
+    for bin_name in claude codex herdr skills pi gnhf opencode no-mistakes; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -223,7 +232,7 @@ opencode opencode"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, herdr, skills, pi-coding-agent, gnhf, and opencode's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "claude-code, codex, herdr, skills, pi-coding-agent, gnhf, opencode, and no-mistakes' native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {
@@ -240,9 +249,9 @@ test_herdr_integrations_run_after_native_install_on_linux() {
   done
   after=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
     || fail "darwinConfigurations.mac installHerdrAgentIntegrations activation dependencies failed to evaluate"
-  assert_not_contains "$after" "\"installNativeTools\"" \
-    "darwinConfigurations.mac must not depend on the Linux-only installNativeTools activation entry"
-  pass "herdr agent integrations run after native herdr installation on Linux without adding a Darwin dependency"
+  assert_contains "$after" "\"installNativeTools\"" \
+    "darwinConfigurations.mac must also order installHerdrAgentIntegrations after installNativeTools now that entry exists on both platforms (no-mistakes' native install on macOS) - keep the ordering identical on both platforms rather than branching it per OS"
+  pass "herdr agent integrations run after native installs on both platforms, with a consistent activation ordering"
 }
 
 test_linux_archive_tools_present_for_native_installers() {
@@ -378,17 +387,56 @@ test_linux_native_install_fault_isolation() {
   pass "installNativeTools isolates each tool's install failure for both Linux homeConfigurations outputs - one broken installer no longer blocks the rest"
 }
 
-test_darwin_native_install_absent() {
+test_darwin_native_install_only_no_mistakes() {
   if ! command -v nix >/dev/null 2>&1; then
-    echo "skip: nix not found for Darwin native-install absence check"
+    echo "skip: nix not found for Darwin native-install check"
     return 0
   fi
-  local names
-  names=$(cd "$ROOT" && nix eval --json '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.activation' --apply 'a: builtins.attrNames a' 2>/dev/null) \
-    || fail "darwinConfigurations.mac home.activation failed to evaluate"
-  assert_not_contains "$names" "installNativeTools" \
-    "darwinConfigurations.mac must not get the Linux-only native installer activation script - herdr is Homebrew-managed on macOS"
-  pass "darwinConfigurations.mac has no installNativeTools activation script (herdr stays Homebrew-managed on macOS)"
+  # installNativeTools now runs on both platforms (no longer gated
+  # lib.mkIf (!isDarwin)): no-mistakes has no Homebrew formula at all
+  # (hasHomebrew = false in tools.nix), so it is the first tool that needs
+  # the native installer on macOS too. The other six fast/all tools
+  # (claude-code, codex, herdr, skills, pi-coding-agent, gnhf, opencode) must
+  # stay exactly where they were - Homebrew-managed on macOS - so this script
+  # must mention no-mistakes and nothing else.
+  local data brews casks names other_marker
+  data=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.activation.installNativeTools.data' 2>/dev/null) \
+    || fail "darwinConfigurations.mac has no installNativeTools activation script - no-mistakes (hasHomebrew = false) needs it on macOS too"
+  assert_contains "$data" "https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh" \
+    "darwinConfigurations.mac installNativeTools must install no-mistakes (its only Homebrew-less fast/all tool)"
+  # Distinctive install commands, not bare tool names: every tool's shared
+  # per-block comment text mentions "codex" and "pi-coding-agent" by name
+  # regardless of which tool the block is actually for (e.g. the
+  # CODEX_NON_INTERACTIVE/tar explanation), so a bare-name check would
+  # false-positive on no-mistakes' own block.
+  for other_marker in \
+    "https://claude.ai/install.sh" \
+    "https://chatgpt.com/codex/install.sh" \
+    "https://herdr.dev/install.sh" \
+    "npm install -g skills" \
+    "https://pi.dev/install.sh" \
+    "npm install -g gnhf" \
+    "npm install -g opencode-ai"
+  do
+    assert_not_contains "$data" "$other_marker" \
+      "darwinConfigurations.mac installNativeTools must not also try to natively install the tool behind '$other_marker' - it stays Homebrew-managed on macOS"
+  done
+
+  brews=$(cd "$ROOT" && nix eval --json '.#darwinConfigurations.mac.config.homebrew.brews' 2>/dev/null) \
+    || fail "darwinConfigurations.mac homebrew.brews failed to evaluate"
+  casks=$(cd "$ROOT" && nix eval --json '.#darwinConfigurations.mac.config.homebrew.casks' 2>/dev/null) \
+    || fail "darwinConfigurations.mac homebrew.casks failed to evaluate"
+  assert_not_contains "$brews" "\"no-mistakes\"" \
+    "darwinConfigurations.mac must not put no-mistakes in homebrew.brews - it has no Homebrew formula and brew bundle would fail"
+  assert_not_contains "$casks" "\"no-mistakes\"" \
+    "darwinConfigurations.mac must not put no-mistakes in homebrew.casks either"
+
+  names=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.sessionPath' --apply 'p: if builtins.elem "/Users/thomasharper/.local/bin" p then "true" else "false"' 2>/dev/null) \
+    || fail "darwinConfigurations.mac home.sessionPath failed to evaluate"
+  [ "$names" = "true" ] \
+    || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
+
+  pass "darwinConfigurations.mac's installNativeTools handles only no-mistakes; the other six fast/all tools stay Homebrew-managed, and no-mistakes never lands in homebrew.brews/casks"
 }
 
 test_linux_ssh_agent_persists() {
@@ -737,7 +785,7 @@ test_linux_native_install_tools_wired
 test_herdr_integrations_run_after_native_install_on_linux
 test_linux_archive_tools_present_for_native_installers
 test_linux_native_install_fault_isolation
-test_darwin_native_install_absent
+test_darwin_native_install_only_no_mistakes
 test_linux_ssh_agent_persists
 test_linux_ssh_agent_lingers_across_sessions
 test_darwin_ssh_agent_not_duplicated
