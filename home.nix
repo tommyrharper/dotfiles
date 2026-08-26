@@ -19,8 +19,6 @@ let
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no
   # such system-level list, so home.packages is the only place to add them.
   linuxNixTools = map (t: pkgs.${sel.nixName t}) sel.nixTools;
-  herdrIntegrationActivationDependencies =
-    [ "writeBoundary" ] ++ lib.optional (!isDarwin) "installNativeTools";
 in
 
 {
@@ -60,8 +58,11 @@ in
   # path (see tools.nix's nativeInstallUrl/nativeInstallNpmPackage comments
   # for each tool's evidence). Skips the install when the binary is already
   # present, so a rebuild with network access already spent doesn't re-fetch
-  # every time.
-  home.activation.installNativeTools = lib.mkIf (!isDarwin) (
+  # every time. Runs on both platforms: sel.nativeInstallTools is empty on
+  # macOS except for the rare tool with no Homebrew formula at all
+  # (hasHomebrew = false in tools.nix, e.g. no-mistakes) - everything else
+  # stays Homebrew-managed there, per tool-selection.nix's useNative.
+  home.activation.installNativeTools =
     lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.concatMapStrings (t: ''
       if [ ! -x "$HOME/.local/bin/${sel.nativeInstallBinName t}" ]; then
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
@@ -113,11 +114,11 @@ in
           ) || echo "WARNING: native install of ${t.name} failed (exit $?) - continuing with remaining tools" >&2
         fi
       fi
-    '') sel.nativeInstallTools)
-  );
-  # So a native-installed binary like herdr (placed in ~/.local/bin by its
-  # own installer, above) is actually reachable after a shell restart.
-  home.sessionPath = lib.optionals (!isDarwin) [ "${config.home.homeDirectory}/.local/bin" ];
+    '') sel.nativeInstallTools);
+  # So a native-installed binary (herdr on Ubuntu, no-mistakes on both
+  # platforms - placed in ~/.local/bin by its own installer, above) is
+  # actually reachable after a shell restart.
+  home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
   fonts.fontconfig.enable = true;
   # optionalAttrs, not lib.mkIf, for the Linux-only entries: this option is a
   # lazyAttrsOf, so a `mkIf false` leaf leaves the attribute present-but-null
@@ -308,7 +309,11 @@ in
   # installNativeTools on Ubuntu - and activation runs with a curated PATH
   # that includes neither by default, so both are added explicitly (same
   # lesson as loginctl above: never assume a bare command resolves here).
-  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter herdrIntegrationActivationDependencies ''
+  # Ordered after installNativeTools on both platforms now that entry exists
+  # on both (see above) - a no-op ordering on macOS today since herdr itself
+  # never goes through installNativeTools there, but keeps the two activation
+  # scripts in one consistent, deterministic order everywhere.
+  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] ''
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     if command -v herdr >/dev/null 2>&1; then
       for target in claude codex pi; do
