@@ -51,6 +51,18 @@
   # too, not just Ubuntu - the first platform=all/fast tool that needs that
   # (see home.nix's installNativeTools, which now runs on both platforms).
   { name = "no-mistakes"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"; hasHomebrew = false; }
+  # treehouse (git worktree pool manager) does have a real homebrew-core
+  # formula (`brew info treehouse` -> homebrew/core, "Manage worktrees
+  # without managing worktrees", homepage github.com/kunchenguid/treehouse),
+  # so it keeps the default hasHomebrew = true and stays Homebrew-managed on
+  # macOS like the rest of this group. Ubuntu uses its own install.sh, which
+  # drops a single static Go binary into ~/.local/bin whenever that directory
+  # is already on $PATH (installNativeTools exports it before running the
+  # script) and never edits a shell rc file. Not nativeInstallNpmPackage: the
+  # npm package named "treehouse" is an unrelated React state library, not
+  # this tool. Not a plain nixName entry either - nixpkgs has no treehouse
+  # attribute (verified with builtins.hasAttr against this flake's nixpkgs).
+  { name = "treehouse"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
