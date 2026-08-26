@@ -99,6 +99,14 @@ in
             # scope here. Keep both in sync.
             export CODEX_NON_INTERACTIVE=1
             export NPM_CONFIG_PREFIX="$HOME/.local"
+            # treehouse's install.sh picks its target with `[ -w "$INSTALL_DIR" ]`
+            # *before* it mkdir -p's, so on a machine where ~/.local/bin does
+            # not exist yet it falls through to a `sudo mv` into
+            # /usr/local/bin - which can only fail inside a non-interactive
+            # activation. Create the directory once here rather than relying
+            # on an earlier tool in this loop having created it as a side
+            # effect.
+            mkdir -p "$HOME/.local/bin"
             set -o pipefail
             ${if t.nativeInstallUrl or null != null then ''
               ${pkgs.curl}/bin/curl -fsSL ${lib.escapeShellArg t.nativeInstallUrl} | ${pkgs.runtimeShell}
