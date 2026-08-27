@@ -1,4 +1,5 @@
 local wezterm = require("wezterm")
+local act = wezterm.action
 
 local config = wezterm.config_builder()
 
@@ -43,6 +44,11 @@ config.keys = {
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
   -- AI-fill the Zsh input buffer: sends Ctrl-G, bound in home.nix to ai-fill-buffer.
   { key = "g", mods = "LEADER", action = wezterm.action.SendKey({ key = "g", mods = "CTRL" }) },
+  -- Option+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude agents view).
+  { key = "h", mods = "OPT", action = act.SendString("\x1b[D") },
+  { key = "j", mods = "OPT", action = act.SendString("\x1b[B") },
+  { key = "k", mods = "OPT", action = act.SendString("\x1b[A") },
+  { key = "l", mods = "OPT", action = act.SendString("\x1b[C") },
 }
 
 -- Dim unfocused windows so the focused one is obvious at a glance.
