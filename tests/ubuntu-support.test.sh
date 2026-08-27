@@ -54,7 +54,9 @@ FLAKE_USER=thomasharper
 # formula to homebrew.brews, and installNativeTools gained a shared
 # `mkdir -p "$HOME/.local/bin"` (treehouse's install.sh picks /usr/local/bin +
 # sudo when that directory does not exist yet), which runs on both platforms.
-EXPECTED_DARWIN_DRVPATH="/nix/store/f9rl3zpvb9yag00xrvfhhchaalls2ymg-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding cursor-agent: macOS gets the cursor-cli cask,
+# while Linux gets Cursor's official installer and checks for ~/.local/bin/agent.
+EXPECTED_DARWIN_DRVPATH="/nix/store/nr3cwv2h60r6qvka7dcfviq3zq2dai0a-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -177,6 +179,7 @@ test_linux_native_install_tools_wired() {
   # their tools.nix entry name), and the exact dry-run line it must print.
   local expected_name_binname="claude-code claude
 codex codex
+cursor-agent agent
 herdr herdr
 skills skills
 pi-coding-agent pi
@@ -187,6 +190,7 @@ treehouse treehouse"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
     "Would install codex via https://chatgpt.com/codex/install.sh"
+    "Would install cursor-agent via https://cursor.com/install"
     "Would install herdr via https://herdr.dev/install.sh"
     "Would install skills via npm install -g skills"
     "Would install pi-coding-agent via https://pi.dev/install.sh"
@@ -210,7 +214,7 @@ treehouse treehouse"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -230,7 +234,7 @@ treehouse treehouse"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex herdr skills pi gnhf opencode no-mistakes treehouse; do
+    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -239,7 +243,7 @@ treehouse treehouse"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {
@@ -312,6 +316,7 @@ test_linux_archive_tools_present_for_native_installers() {
     patched=$(printf '%s\n' "$data" \
       | sed -E 's#.*curl -fsSL https://claude\.ai/install\.sh.*#:#' \
       | sed -E "s#.*curl -fsSL https://chatgpt\.com/codex/install\.sh.*#resolved_tar=\\\$(command -v tar) \&\& resolved_gzip=\\\$(command -v gzip) \&\& [ \"\\\$resolved_tar\" = \"$gnutar_path/bin/tar\" ] \&\& [ \"\\\$resolved_gzip\" = \"$gzip_path/bin/gzip\" ] || { echo \"tar/gzip resolved to \\\${resolved_tar:-missing}/\\\${resolved_gzip:-missing}, expected $gnutar_path/bin/tar/$gzip_path/bin/gzip\"; exit 1; }; if [ -n \"\\\${TAR_XZF_FIXTURE:-}\" ]; then mkdir -p \"\\\$HOME/extracted\" \&\& tar -xzf \"\\\$TAR_XZF_FIXTURE\" -C \"\\\$HOME/extracted\" \&\& [ -f \"\\\$HOME/extracted/payload\" ]; fi#" \
+      | sed -E 's#.*curl -fsSL https://cursor\.com/install.*#:#' \
       | sed -E 's#.*curl -fsSL https://herdr\.dev/install\.sh.*#:#' \
       | sed -E 's#.*npm install -g skills.*#:#' \
       | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#:#' \
@@ -358,8 +363,8 @@ test_linux_native_install_fault_isolation() {
   # codex's real "tar is required" failure also took down herdr, ordered
   # right after it - see AGENTS.md). Replace each tool's real network
   # install command with a deterministic local stand-in (no network needed):
-  # codex is forced to fail, the other four are forced to succeed. A correct
-  # activation script still installs all four survivors and reports the
+  # codex is forced to fail, and the nearby installer fixtures are forced to succeed.
+  # A correct activation script still installs the checked survivors and reports the
   # codex failure loudly instead of aborting silently.
   local system data patched tmp_home out exit_code bin
   for system in x86_64-linux aarch64-linux; do
@@ -369,6 +374,7 @@ test_linux_native_install_fault_isolation() {
     patched=$(printf '%s\n' "$data" \
       | sed -E 's#.*curl -fsSL https://claude\.ai/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/claude" \&\& chmod +x "$HOME/.local/bin/claude"#' \
       | sed -E 's#.*curl -fsSL https://chatgpt\.com/codex/install\.sh.*#false#' \
+      | sed -E 's#.*curl -fsSL https://cursor\.com/install.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/agent" \&\& chmod +x "$HOME/.local/bin/agent"#' \
       | sed -E 's#.*curl -fsSL https://herdr\.dev/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/herdr" \&\& chmod +x "$HOME/.local/bin/herdr"#' \
       | sed -E 's#.*npm install -g skills.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/skills" \&\& chmod +x "$HOME/.local/bin/skills"#' \
       | sed -E 's#.*curl -fsSL https://pi\.dev/install\.sh.*#mkdir -p "$HOME/.local/bin" \&\& touch "$HOME/.local/bin/pi" \&\& chmod +x "$HOME/.local/bin/pi"#' \
@@ -386,7 +392,7 @@ test_linux_native_install_fault_isolation() {
     [ ! -e "$tmp_home/.local/bin/codex" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" fault-isolation test fixture is broken: codex's forced failure still produced a binary"
 
-    for bin in claude herdr skills pi gnhf; do
+    for bin in claude agent herdr skills pi gnhf; do
       [ -x "$tmp_home/.local/bin/$bin" ] \
         || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must still install $bin when codex's install fails, got: $out"
     done
@@ -402,9 +408,9 @@ test_darwin_native_install_only_no_mistakes() {
   # installNativeTools now runs on both platforms (no longer gated
   # lib.mkIf (!isDarwin)): no-mistakes has no Homebrew formula at all
   # (hasHomebrew = false in tools.nix), so it is the first tool that needs
-  # the native installer on macOS too. The other seven fast/all tools
-  # (claude-code, codex, herdr, skills, pi-coding-agent, gnhf, opencode,
-  # treehouse) must
+  # the native installer on macOS too. The other nine fast/all tools
+  # (claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent,
+  # gnhf, opencode, treehouse) must
   # stay exactly where they were - Homebrew-managed on macOS - so this script
   # must mention no-mistakes and nothing else.
   local data brews casks names other_marker
@@ -420,6 +426,7 @@ test_darwin_native_install_only_no_mistakes() {
   for other_marker in \
     "https://claude.ai/install.sh" \
     "https://chatgpt.com/codex/install.sh" \
+    "https://cursor.com/install" \
     "https://herdr.dev/install.sh" \
     "npm install -g skills" \
     "https://pi.dev/install.sh" \
@@ -446,13 +453,15 @@ test_darwin_native_install_only_no_mistakes() {
   # (asserted above via its install.sh URL in other_marker).
   assert_contains "$brews" "\"treehouse\"" \
     "darwinConfigurations.mac must install treehouse from its real homebrew-core formula, not through the native installer"
+  assert_contains "$casks" "\"cursor-cli\"" \
+    "darwinConfigurations.mac must install Cursor Agent from the cursor-cli Homebrew cask, not through the native installer"
 
   names=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.sessionPath' --apply 'p: if builtins.elem "/Users/thomasharper/.local/bin" p then "true" else "false"' 2>/dev/null) \
     || fail "darwinConfigurations.mac home.sessionPath failed to evaluate"
   [ "$names" = "true" ] \
     || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
 
-  pass "darwinConfigurations.mac's installNativeTools handles only no-mistakes; the other seven fast/all tools stay Homebrew-managed, and no-mistakes never lands in homebrew.brews/casks"
+  pass "darwinConfigurations.mac's installNativeTools handles only no-mistakes; the other nine fast/all tools stay Homebrew-managed, and no-mistakes never lands in homebrew.brews/casks"
 }
 
 test_linux_ssh_agent_persists() {
