@@ -739,6 +739,38 @@ run_bootstrap_uidmap_block() {
   printf 'exit:%s\n' "$?"
 }
 
+test_python3_linux_only_for_mason() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for python3 selection check"
+    return 0
+  fi
+  # mason installs nvim's basedpyright from PyPI into a venv, which needs a
+  # python3 with ensurepip. Ubuntu's system one has none, so Nix supplies it
+  # there. macOS already has a working python3 from the Xcode Command Line
+  # Tools - the same arrangement as the gcc/gnumake/pkg-config entries above -
+  # and adding a Nix python3 to the macOS config would not be harmless: its
+  # environment.systemPackages sits ahead of /usr/bin in the PATH, so it would
+  # silently shadow the system interpreter on a machine nobody asked to change.
+  local system names darwin_system_pkgs
+  for system in x86_64-linux aarch64-linux; do
+    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+      --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+      || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
+    assert_contains "$names" "\"python3\"" \
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing python3 - mason cannot install basedpyright without it"
+  done
+
+  # Unlike the uv check above, this absence is meaningful: environment.systemPackages
+  # is exactly the route a platform = "all" Nix tool takes to macOS, so a python3
+  # appearing here is the signal that someone widened the platform field.
+  darwin_system_pkgs=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
+    --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+    || fail "darwinConfigurations.mac environment.systemPackages failed to evaluate"
+  assert_not_contains "$darwin_system_pkgs" "\"python3\"" \
+    "darwinConfigurations.mac must not install a Nix python3 - macOS has one via Xcode Command Line Tools, and this one would shadow it in PATH"
+  pass "python3 is Nix-supplied on Linux for mason and deliberately left to Xcode Command Line Tools on macOS"
+}
+
 test_bootstrap_installs_uidmap_on_linux() {
   # home.nix's rootless docker unit needs setuid newuidmap to apply this
   # user's /etc/subuid range, and a Nix store binary can never be setuid - so
@@ -819,5 +851,6 @@ test_darwin_login_shell_untouched
 test_linux_rootless_docker_service
 test_darwin_rootless_docker_absent
 test_uv_selected_on_both_platforms
+test_python3_linux_only_for_mason
 test_bootstrap_installs_uidmap_on_linux
 test_darwin_uidmap_step_absent

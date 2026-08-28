@@ -96,6 +96,12 @@
   { name = "gcc"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "gnumake"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "pkg-config"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
+  # Same convention, same reason: mason installs nvim's basedpyright from PyPI
+  # into a venv, and Ubuntu's system python3 ships without ensurepip, so
+  # `python3 -m venv` fails outright there. macOS gets a working python3 from
+  # the Xcode Command Line Tools, so adding one here would only shadow it -
+  # environment.systemPackages precedes /usr/bin in the macOS PATH.
+  { name = "python3"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
