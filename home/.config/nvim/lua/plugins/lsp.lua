@@ -1,4 +1,5 @@
--- Python development environment: language servers, completion, formatting.
+-- Python development environment: language servers and completion. Formatting
+-- is conform.nvim's, in format.lua, on <leader>F for every filetype at once.
 -- The servers are installed by mason rather than Nix, so this file is the
 -- single source of truth for what a Python buffer gets.
 return {
@@ -54,21 +55,5 @@ return {
         end,
       })
     end,
-  },
-
-  -- Format on save with ruff, falling back to whichever LSP is attached if
-  -- ruff_format cannot handle the buffer.
-  {
-    'stevearc/conform.nvim',
-    event = 'BufWritePre',
-    opts = {
-      formatters_by_ft = {
-        python = { 'ruff_format' },
-      },
-      format_on_save = {
-        timeout_ms = 500,
-        lsp_format = 'fallback',
-      },
-    },
   },
 }

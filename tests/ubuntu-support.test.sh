@@ -56,7 +56,10 @@ FLAKE_USER=thomasharper
 # sudo when that directory does not exist yet), which runs on both platforms.
 # Re-pin again after adding cursor-agent: macOS gets the cursor-cli cask,
 # while Linux gets Cursor's official installer and checks for ~/.local/bin/agent.
-EXPECTED_DARWIN_DRVPATH="/nix/store/isca8fc8g38b59ssalqg7glhrb7x23fs-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding prettier (platform = "all", updatePolicy =
+# "stable"): a Nix package addition lands in environment.systemPackages on
+# macOS too, so the darwin derivation legitimately changes.
+EXPECTED_DARWIN_DRVPATH="/nix/store/ch31imj759rz5yizbnw14s0ski2lcw0z-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then

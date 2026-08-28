@@ -327,10 +327,15 @@ That needs network access once; after that it's offline.
 Neovim and WezTerm both use the rose-pine moon theme.
 Neovim keeps italics off and uses a transparent background on macOS, Windows, and WSL so it matches the terminal setup.
 
-Python files get `basedpyright` (types, completion, navigation) and `ruff` (linting, code actions, format on save), configured in `home/.config/nvim/lua/plugins/lsp.lua`.
+Python files get `basedpyright` (types, completion, navigation) and `ruff` (linting, code actions, formatting), configured in `home/.config/nvim/lua/plugins/lsp.lua`.
 Both servers are installed by `mason`, not Nix, on first non-headless launch - `mason-lspconfig` skips `ensure_installed` when Neovim is headless, so `:Mason` is where you watch it happen or retry.
 Ubuntu additionally gets Nix's `python3`, because mason installs basedpyright from PyPI into a venv and Ubuntu's system interpreter ships without `ensurepip`.
 macOS is left alone here - its Xcode Command Line Tools `python3` already does this, the same arrangement as the `gcc`/`gnumake`/`pkg-config` entries, and a Nix `python3` would shadow the system one in PATH rather than sit beside it.
+
+[conform.nvim](https://github.com/stevearc/conform.nvim) formats on demand, never on save: `<leader>F` formats the buffer, using `ruff_format` for python and the `prettier` that `tools.nix` installs for markdown, yaml, json, html, and css (`home/.config/nvim/lua/plugins/format.lua`).
+Formatting rewrites the whole buffer, so doing it on save would turn a one-line fix in a never-formatted project into a few hundred lines of churn - and `<Esc>` is mapped to `:w`, so it would fire constantly.
+Each formatter reads the edited project's own config (`.prettierrc`, `.editorconfig`, `pyproject.toml`); there is no house style imposed from here.
+lua and nix are deliberately unmapped - `stylua` and `nixfmt` disagree with this repo's own hand-formatting wholesale.
 
 ## License
 

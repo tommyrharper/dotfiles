@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The Python LSP plugin spec is wired up as intended: both servers in mason's
 # ensure_installed, ruff's hover disabled so it does not fight basedpyright,
-# basedpyright on typeCheckingMode "basic", and conform formatting on save.
+# basedpyright on typeCheckingMode "basic", and format.lua formatting python
+# with ruff on save.
 #
 # This loads the spec as real Lua rather than grepping it, so a typo in a key
 # or a syntax error fails here. Installing the servers needs the network and a
@@ -44,14 +45,17 @@ local fake = { server_capabilities = { hoverProvider = true } }
 vim.lsp.config['ruff'].on_attach(fake)
 want(fake.server_capabilities.hoverProvider == false, 'ruff on_attach does not disable hover')
 
-local conform = (by_repo['stevearc/conform.nvim'] or {}).opts or {}
-want(vim.deep_equal(conform.formatters_by_ft.python, { 'ruff_format' }),
+-- conform.nvim itself lives in format.lua, which owns format-on-save for
+-- every filetype at once; only the python mapping is this file's business.
+local fmt = dofile(os.getenv('FORMAT_SPEC'))[1].opts
+want(vim.deep_equal(fmt.formatters_by_ft.python, { 'ruff_format' }),
   'conform does not format python with ruff_format')
-want(conform.format_on_save.timeout_ms == 500, 'conform format_on_save timeout is not 500ms')
-want(conform.format_on_save.lsp_format == 'fallback', 'conform does not fall back to LSP formatting')
+want(fmt.format_on_save == nil,
+  'python formatting is meant to be on demand (<leader>F), not on save')
 LUA
 
 SPEC="$ROOT/home/.config/nvim/lua/plugins/lsp.lua" \
+FORMAT_SPEC="$ROOT/home/.config/nvim/lua/plugins/format.lua" \
   nvim --clean -l "$tmp/check.lua" >/dev/null 2>"$tmp/err" \
   || fail "$(cat "$tmp/err")"
 
