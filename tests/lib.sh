@@ -26,22 +26,26 @@ pass() {
 
 # --- self-cleaning temp root -------------------------------------------------
 
-DOTFILES_TEST_CLEANUP_DIRS=()
+# Callers use tmproot from a command substitution, so it runs in a subshell:
+# anything it registers there (an array entry, an EXIT trap) dies with that
+# subshell - and an EXIT trap registered inside it fires immediately, deleting
+# the directory it just handed back. So the trap is armed here, in the caller's
+# own shell, and the list of directories lives in a file both shells can see.
+DOTFILES_TEST_CLEANUP_LIST=$(mktemp "${TMPDIR:-/tmp}/dotfiles-test-cleanup.XXXXXX")
 
 dotfiles_test_cleanup() {
   local d
-  for d in "${DOTFILES_TEST_CLEANUP_DIRS[@]:-}"; do
+  while IFS= read -r d; do
     [ -n "$d" ] && rm -rf "$d"
-  done
+  done < "$DOTFILES_TEST_CLEANUP_LIST"
+  rm -f "$DOTFILES_TEST_CLEANUP_LIST"
 }
+trap dotfiles_test_cleanup EXIT
 
 dotfiles_test_tmproot() {
   local prefix=${1:-dotfiles-test} root
   root=$(mktemp -d "${TMPDIR:-/tmp}/${prefix}.XXXXXX")
-  if [ "${#DOTFILES_TEST_CLEANUP_DIRS[@]}" -eq 0 ]; then
-    trap dotfiles_test_cleanup EXIT
-  fi
-  DOTFILES_TEST_CLEANUP_DIRS+=("$root")
+  printf '%s\n' "$root" >> "$DOTFILES_TEST_CLEANUP_LIST"
   printf '%s\n' "$root"
 }
 
