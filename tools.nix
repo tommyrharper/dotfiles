@@ -82,6 +82,7 @@
   # environment.systemPackages on macOS (never Homebrew - useHomebrew only
   # claims macOS-specific or fast-moving tools).
   { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "go"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
