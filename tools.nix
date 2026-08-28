@@ -83,6 +83,10 @@
   # claims macOS-specific or fast-moving tools).
   { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "go"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # The formatter nvim's conform.nvim shells out to (see
+  # home/.config/nvim/lua/plugins/format.lua). Nix's `prettier` bundles its own
+  # node, so it does not depend on the npm-backed toolchain above.
+  { name = "prettier"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
