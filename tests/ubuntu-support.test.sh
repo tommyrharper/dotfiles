@@ -56,7 +56,7 @@ FLAKE_USER=thomasharper
 # sudo when that directory does not exist yet), which runs on both platforms.
 # Re-pin again after adding cursor-agent: macOS gets the cursor-cli cask,
 # while Linux gets Cursor's official installer and checks for ~/.local/bin/agent.
-EXPECTED_DARWIN_DRVPATH="/nix/store/nr3cwv2h60r6qvka7dcfviq3zq2dai0a-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/isca8fc8g38b59ssalqg7glhrb7x23fs-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
