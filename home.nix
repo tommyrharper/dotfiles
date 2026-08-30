@@ -158,6 +158,21 @@ in
     initContent = ''
       bindkey '^f' autosuggest-accept
 
+      # Option/Alt + Left/Right move by word. home.sessionVariables sets
+      # EDITOR=nvim, and zsh reads VISUAL/EDITOR for "vi" at startup to pick
+      # its default keymap, so main is viins and Esc-b/Esc-f are unbound: Esc
+      # alone just leaves insert mode, which is the prompt character flipping
+      # from starship's success_symbol to its vicmd_symbol, and the letter
+      # after it then runs as a vi command. Herdr passes both encodings
+      # through untouched on purpose (herdr.dev/docs troubleshooting), so the
+      # binding belongs here, in the one config every pane shares - local,
+      # `herdr --remote`, or plain ssh. Terminals send one of two encodings
+      # for these keys; bind both.
+      bindkey '^[b' backward-word          # Esc-b, what wezterm.lua sends
+      bindkey '^[f' forward-word           # Esc-f
+      bindkey '^[[1;3D' backward-word      # CSI 1;3D, the modified-arrow form
+      bindkey '^[[1;3C' forward-word       # CSI 1;3C
+
       # WezTerm leader (Ctrl-Space) + g sends Ctrl-G into the terminal.
       # Replace the current input line with an AI-generated one, no execution.
       ai-fill-buffer() {

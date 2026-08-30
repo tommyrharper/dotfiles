@@ -59,7 +59,12 @@ FLAKE_USER=thomasharper
 # Re-pin again after adding prettier (platform = "all", updatePolicy =
 # "stable"): a Nix package addition lands in environment.systemPackages on
 # macOS too, so the darwin derivation legitimately changes.
-EXPECTED_DARWIN_DRVPATH="/nix/store/ch31imj759rz5yizbnw14s0ski2lcw0z-darwin-system-26.05.adda04f.drv"
+# Re-pin again after binding Option+arrow word navigation in the shared zsh
+# initContent (home.nix): the bindings are deliberately not platform-gated -
+# the bug they fix is a `herdr --remote` pane on Ubuntu, but the same vi
+# keymap is selected on macOS, so gating them would leave the two shells
+# editing differently. See tests/zsh-word-nav.test.sh.
+EXPECTED_DARWIN_DRVPATH="/nix/store/3mhd3ag7656cl59lgi5sphdq8fhyljii-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
