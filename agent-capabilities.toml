@@ -27,31 +27,25 @@
 name = "gh-axi"
 kind = "skill"
 source = "kunchenguid/gh-axi"
-targets = ["codex", "claude", "opencode"]
-
-[[capability]]
-name = "lavish"
-kind = "skill"
-source = "kunchenguid/lavish-axi"
-targets = ["codex", "opencode"]
+targets = ["claude", "codex", "opencode"]
 
 [[capability]]
 name = "quota-axi"
 kind = "skill"
 source = "kunchenguid/quota-axi"
-targets = ["codex", "opencode"]
+targets = ["claude", "codex", "opencode"]
 
 [[capability]]
 name = "find-skills"
 kind = "skill"
 source = "vercel-labs/skills"
-targets = ["codex", "opencode"]
+targets = ["claude", "codex", "opencode"]
 
 [[capability]]
 name = "skill-creator"
 kind = "skill"
 source = "anthropics/skills"
-targets = ["codex", "opencode"]
+targets = ["claude", "codex", "opencode"]
 
 # "local" source skills were authored/installed with no tracked remote (the
 # `skills` CLI itself records source: null for these). Nothing to fetch on a
@@ -67,7 +61,7 @@ targets = ["codex", "claude", "opencode"]
 name = "graphify"
 kind = "skill"
 source = "local"
-targets = ["claude"]
+targets = ["claude", "codex", "opencode"]
 
 # --- Claude Code plugins, installed via `claude plugin` ---------------------
 # `claude plugin list --json` is the read-only source of truth; sync runs
@@ -78,14 +72,14 @@ name = "caveman"
 kind = "plugin"
 source = "JuliusBrussee/caveman"
 id = "caveman@caveman"
-targets = ["claude"]
+targets = ["claude", "codex", "opencode"]
 
 [[capability]]
 name = "ponytail"
 kind = "plugin"
 source = "DietrichGebert/ponytail"
 id = "ponytail@ponytail"
-targets = ["claude"]
+targets = ["claude", "codex", "opencode"]
 
 [[capability]]
 name = "skill-codex"
