@@ -49,6 +49,11 @@ config.keys = {
   { key = "j", mods = "OPT", action = act.SendString("\x1b[B") },
   { key = "k", mods = "OPT", action = act.SendString("\x1b[A") },
   { key = "l", mods = "OPT", action = act.SendString("\x1b[C") },
+  -- Option+Left/Right send Esc-b / Esc-f, the readline word-nav sequences.
+  -- Without this macOS Option composes a character instead, which Herdr
+  -- misreads as a prompt-indicator toggle and leaves the terminal wedged.
+  { key = "LeftArrow", mods = "OPT", action = act.SendString("\x1bb") },
+  { key = "RightArrow", mods = "OPT", action = act.SendString("\x1bf") },
 }
 
 -- Dim unfocused windows so the focused one is obvious at a glance.
