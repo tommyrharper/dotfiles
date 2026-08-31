@@ -209,6 +209,7 @@ in
       askclaude = ''claude -p --tools=""'';
       askpi = "pi --no-context-files --exclude-tools read,write,edit,bash -p";
       askcodex = "codex exec --ephemeral --sandbox read-only";
+      askcursor = "cursor-agent -p --mode ask --trust";
 
       # One-shot, full agent/tool access
       doclaude = "claude -p";
@@ -219,6 +220,7 @@ in
       chatclaude = ''claude --tools ""'';
       chatpi = "pi --no-context-files --exclude-tools read,write,edit,bash";
       chatcodex = "codex --sandbox read-only --ask-for-approval never";
+      chatcursor = "cursor-agent --mode ask";
     } // lib.optionalAttrs isDarwin {
       # macOS-only: clipboard (pbcopy) and sleep control (pmset) have no
       # direct Linux equivalent wired up here.

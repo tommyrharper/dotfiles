@@ -37,12 +37,14 @@ Defined in `home.nix` `programs.zsh.shellAliases`.
 | `askclaude` | `claude -p --tools=""` | One-shot, no tools |
 | `askpi` | `pi --no-context-files --exclude-tools read,write,edit,bash -p` | One-shot, no tools |
 | `askcodex` | `codex exec --ephemeral --sandbox read-only` | One-shot, no tools |
+| `askcursor` | `cursor-agent -p --mode ask --trust` | One-shot, no tools |
 | `doclaude` | `claude -p` | One-shot, full tools |
 | `dopi` | `pi -p` | One-shot, full tools |
 | `docodex` | `codex exec` | One-shot, full tools |
 | `chatclaude` | `claude --tools ""` | Interactive, no tools |
 | `chatpi` | `pi --no-context-files --exclude-tools read,write,edit,bash` | Interactive, no tools |
 | `chatcodex` | `codex --sandbox read-only --ask-for-approval never` | Interactive, no tools |
+| `chatcursor` | `cursor-agent --mode ask` | Interactive, no tools |
 
 ### Zsh keybindings
 

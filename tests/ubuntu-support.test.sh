@@ -64,7 +64,10 @@ FLAKE_USER=thomasharper
 # the bug they fix is a `herdr --remote` pane on Ubuntu, but the same vi
 # keymap is selected on macOS, so gating them would leave the two shells
 # editing differently. See tests/zsh-word-nav.test.sh.
-EXPECTED_DARWIN_DRVPATH="/nix/store/3mhd3ag7656cl59lgi5sphdq8fhyljii-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding the askcursor/chatcursor zsh aliases (home.nix):
+# shellAliases is shared, not platform-gated, so a new alias legitimately
+# changes the darwin derivation too.
+EXPECTED_DARWIN_DRVPATH="/nix/store/0w6njh3lcag5bkz4m86y15z30p9998nh-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
