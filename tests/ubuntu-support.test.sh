@@ -67,7 +67,12 @@ FLAKE_USER=thomasharper
 # Re-pin again after adding the askcursor/chatcursor zsh aliases (home.nix):
 # shellAliases is shared, not platform-gated, so a new alias legitimately
 # changes the darwin derivation too.
-EXPECTED_DARWIN_DRVPATH="/nix/store/0w6njh3lcag5bkz4m86y15z30p9998nh-darwin-system-26.05.adda04f.drv"
+# Re-pin again after turning askcodex from a shellAlias into a function in the
+# same shared zsh initContent: `codex exec` writes its banner to stderr and
+# only the answer to stdout, and an alias cannot both drop that stderr and
+# still take the prompt as an argument. The noise is identical on both
+# platforms, so the function is deliberately not gated.
+EXPECTED_DARWIN_DRVPATH="/nix/store/wjs9hrwcmgsw8p4lm2frzlk50kqfmmmm-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
