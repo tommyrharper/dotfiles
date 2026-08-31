@@ -36,7 +36,7 @@ Defined in `home.nix` `programs.zsh.shellAliases`.
 | `co` | `codex -s workspace-write -a never` | Writes in workspace, never asks |
 | `askclaude` | `claude -p --tools=""` | One-shot, no tools |
 | `askpi` | `pi --no-context-files --exclude-tools read,write,edit,bash -p` | One-shot, no tools |
-| `askcodex` | `codex exec --ephemeral --sandbox read-only` | One-shot, no tools |
+| `askcodex` | `codex exec --ephemeral --sandbox read-only` (function) | One-shot, no tools; answer only, stderr shown only on failure |
 | `askcursor` | `cursor-agent -p --mode ask --trust` | One-shot, no tools |
 | `doclaude` | `claude -p` | One-shot, full tools |
 | `dopi` | `pi -p` | One-shot, full tools |

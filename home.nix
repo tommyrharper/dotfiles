@@ -184,6 +184,22 @@ in
       zle -N ai-fill-buffer
       bindkey '^G' ai-fill-buffer
 
+      # One-shot codex ask. codex exec writes its banner, sandbox warnings,
+      # hook lines and token count to stderr and only the final answer to
+      # stdout, so a plain alias buries a one-line answer in ten lines of
+      # chrome. Drop stderr, but keep it for the run that actually failed -
+      # auth and network errors live there too, and swallowing them would
+      # leave a failed ask printing nothing at all.
+      askcodex() {
+        local err ret
+        err=$(mktemp)
+        codex exec --ephemeral --sandbox read-only "$@" 2>"$err"
+        ret=$?
+        (( ret )) && cat "$err" >&2
+        rm -f "$err"
+        return ret
+      }
+
       private_env="$HOME/.dotfiles/home/.config/zsh/private-env.zsh"
       unset HETZNER_HOST
       if [[ -r "$private_env" ]]; then
@@ -208,8 +224,9 @@ in
       # One-shot, no tools
       askclaude = ''claude -p --tools=""'';
       askpi = "pi --no-context-files --exclude-tools read,write,edit,bash -p";
-      askcodex = "codex exec --ephemeral --sandbox read-only";
       askcursor = "cursor-agent -p --mode ask --trust";
+      # askcodex is a function in initContent, not an alias: an alias cannot
+      # redirect codex's stderr and still take the prompt as an argument.
 
       # One-shot, full agent/tool access
       doclaude = "claude -p";
