@@ -1,7 +1,7 @@
--- Python development environment: language servers and completion. Formatting
+-- Language servers and completion for Python and TypeScript/TSX. Formatting
 -- is conform.nvim's, in format.lua, on <leader>F for every filetype at once.
 -- The servers are installed by mason rather than Nix, so this file is the
--- single source of truth for what a Python buffer gets.
+-- single source of truth for what these buffers get.
 return {
   -- mason installs the server binaries into ~/.local/share/nvim/mason/bin.
   {
@@ -16,13 +16,13 @@ return {
     'mason-org/mason-lspconfig.nvim',
     dependencies = { 'mason-org/mason.nvim', 'neovim/nvim-lspconfig' },
     opts = {
-      ensure_installed = { 'basedpyright', 'ruff' },
+      ensure_installed = { 'basedpyright', 'ruff', 'ts_ls' },
     },
   },
 
   -- Per-server settings. nvim-lspconfig ships the cmd/filetypes/root markers
-  -- for both servers, and vim.lsp.config extends that, so only the deltas
-  -- belong here.
+  -- for each server, and vim.lsp.config extends that, so only the deltas
+  -- belong here. ts_ls needs none, so it's not mentioned below.
   {
     'neovim/nvim-lspconfig',
     config = function()

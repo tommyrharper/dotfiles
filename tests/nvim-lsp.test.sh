@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The Python LSP plugin spec is wired up as intended: both servers in mason's
-# ensure_installed, ruff's hover disabled so it does not fight basedpyright,
-# basedpyright on typeCheckingMode "basic", and format.lua formatting python
-# with ruff on save.
+# The LSP plugin spec is wired up as intended: all servers in mason's
+# ensure_installed (basedpyright, ruff, ts_ls), ruff's hover disabled so it
+# does not fight basedpyright, basedpyright on typeCheckingMode "basic", and
+# format.lua formatting python with ruff on save.
 #
 # This loads the spec as real Lua rather than grepping it, so a typo in a key
 # or a syntax error fails here. Installing the servers needs the network and a
@@ -14,7 +14,7 @@ set -u
 
 command -v nvim >/dev/null 2>&1 || { echo "skip: nvim not installed"; exit 0; }
 
-tmp=$(dotfiles_test_tmproot nvim-python-lsp)
+tmp=$(dotfiles_test_tmproot nvim-lsp)
 cat > "$tmp/check.lua" <<'LUA'
 local spec = dofile(os.getenv('SPEC'))
 local by_repo = {}
@@ -30,6 +30,7 @@ local ensure = (by_repo['mason-org/mason-lspconfig.nvim'] or {}).opts or {}
 ensure = ensure.ensure_installed or {}
 want(vim.tbl_contains(ensure, 'basedpyright'), 'basedpyright missing from ensure_installed')
 want(vim.tbl_contains(ensure, 'ruff'), 'ruff missing from ensure_installed')
+want(vim.tbl_contains(ensure, 'ts_ls'), 'ts_ls missing from ensure_installed')
 
 -- Run nvim-lspconfig's config body and read back what it registered.
 local lspconfig = by_repo['neovim/nvim-lspconfig']
@@ -59,4 +60,4 @@ FORMAT_SPEC="$ROOT/home/.config/nvim/lua/plugins/format.lua" \
   nvim --clean -l "$tmp/check.lua" >/dev/null 2>"$tmp/err" \
   || fail "$(cat "$tmp/err")"
 
-pass "nvim python LSP spec installs basedpyright + ruff and formats with conform"
+pass "nvim LSP spec installs basedpyright + ruff + ts_ls and formats python with conform"
