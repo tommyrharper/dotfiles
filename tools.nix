@@ -91,6 +91,8 @@
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   { name = "lcov"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
+  # TUI PDF viewer (github.com/itsjunetime/tdf), nixpkgs attribute "tdf".
+  { name = "tdf"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   # nixpkgs ships this under the "libusb1" attribute.
   { name = "libusb"; scope = "personal"; platform = "all"; updatePolicy = "stable"; nixName = "libusb1"; }
 
