@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# Same gate bootstrap.sh runs, and for the same reason: this picks the flake
+# output built below, so a missing or bogus .env must stop the rebuild before
+# it touches anything. See .env.example and setup-env.sh.
+# shellcheck source=setup-env.sh
+. "$DIR/setup-env.sh"
+dotfiles_require_setup_env "$DIR"
+
 ln -sfn "$DIR" ~/.dotfiles
 
 OS="$(uname -s)"
@@ -16,7 +24,7 @@ if [ "$OS" = Darwin ]; then
   # path Nix's own libgit2 fetcher reads.
   sudo git config -f /etc/gitconfig --get-all safe.directory 2>/dev/null | grep -qx "$DIR" \
     || sudo git config -f /etc/gitconfig --add safe.directory "$DIR"
-  exec sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ~/.dotfiles#"$HOST_LABEL"
+  exec sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ~/.dotfiles#"${HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
 elif [ "$OS" = Linux ]; then
   FLAKE_USER="$(sed -nE 's/^[[:space:]]*user = "([^"]+)";.*/\1/p' "$DIR/flake.nix" | head -n1)"
   if [ -z "$FLAKE_USER" ]; then
@@ -33,7 +41,7 @@ elif [ "$OS" = Linux ]; then
       ;;
   esac
   # No sudo: standalone home-manager runs entirely as the normal user.
-  exec home-manager switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}"
+  exec home-manager switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
 else
   echo "Unsupported OS: $OS (this repo supports macOS and Ubuntu 22.04 LTS)" >&2
   exit 1

@@ -5,6 +5,15 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
+echo "==> Step 0: setup profile from .env"
+# Before anything else, including the OS check: this decides which flake output
+# every step below builds, and a machine bootstrapped as the wrong profile is
+# worse than one that refuses to start. See .env.example and setup-env.sh.
+# shellcheck source=setup-env.sh
+. "$DIR/setup-env.sh"
+dotfiles_require_setup_env "$DIR"
+echo "    DOTFILES_SETUP=$DOTFILES_SETUP"
+
 OS="$(uname -s)"
 case "$OS" in
   Darwin) PLATFORM=darwin ;;
@@ -97,7 +106,7 @@ if [ "$PLATFORM" = darwin ]; then
     exit 1
   fi
   sudo "$NIX_BIN" run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-    switch --flake ~/.dotfiles#"$FLAKE_HOST_LABEL"
+    switch --flake ~/.dotfiles#"${FLAKE_HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
   # If this still fails with "nix: command not found", open a new terminal
   # (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh.
 else
@@ -108,7 +117,7 @@ else
   # machine, so run it straight from its own flake this once; after this,
   # rebuild.sh calls the installed `home-manager` command directly.
   nix run github:nix-community/home-manager/release-26.05 -- \
-    switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}"
+    switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
 
   echo "==> Step 5: make zsh the login shell"
   # home.nix configures programs.zsh and nothing else, so on a box that still

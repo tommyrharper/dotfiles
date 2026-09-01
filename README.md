@@ -47,12 +47,17 @@ Before you run it: review "Make it yours" below.
 Change the host label or CPU architecture if needed, and read the Homebrew cleanup warning.
 `bootstrap.sh` applies the config to your machine, so do this first.
 
+Then choose this machine's setup profile - `bootstrap.sh` refuses to start until you have:
+
 ```sh
+cp .env.example .env
+# set DOTFILES_SETUP=personal (full setup) or DOTFILES_SETUP=basic (dev tooling only)
 ./bootstrap.sh
 ```
 
-`bootstrap.sh` does five things, in order:
+`bootstrap.sh` does six things, in order:
 
+0. Reads `DOTFILES_SETUP` out of `.env` and refuses to go further if it is missing or not one of `personal`/`basic` (see "Setup profile" below).
 1. Installs Determinate Nix, if it isn't already installed.
 2. Symlinks this repo to `~/.dotfiles`.
    This has to happen before the first build, because `home.nix` points at config files through `~/.dotfiles`.
@@ -99,10 +104,11 @@ Ubuntu 22.04 LTS ("base free" - a plain install, no desktop environment, nothing
 ```sh
 git clone https://github.com/kunchenguid/dotfiles.git
 cd dotfiles
+cp .env.example .env   # then set DOTFILES_SETUP - `basic` is the usual choice on a server
 ./bootstrap.sh
 ```
 
-On Linux, `bootstrap.sh` does six things: installs Determinate Nix (same installer as macOS), symlinks this repo to `~/.dotfiles`, offers to fix the `user` line in `flake.nix` if it doesn't match your Ubuntu username, runs the first `home-manager switch --flake ~/.dotfiles#<user>@<system>` (pinned to the home-manager `release-26.05` branch, same pattern as the macOS `darwin-rebuild` bootstrap), makes `~/.nix-profile/bin/zsh` your login shell, then installs Ubuntu's `uidmap` package (see "Rootless Docker" below). `<system>` is `x86_64-linux` or `aarch64-linux`, detected from `uname -m`. After that, `./rebuild.sh` works the same way it does on macOS.
+On Linux, `bootstrap.sh` does seven things: reads the setup profile from `.env` and refuses to continue unless it is set (see "Setup profile" below), installs Determinate Nix (same installer as macOS), symlinks this repo to `~/.dotfiles`, offers to fix the `user` line in `flake.nix` if it doesn't match your Ubuntu username, runs the first `home-manager switch --flake ~/.dotfiles#<user>@<system>` (pinned to the home-manager `release-26.05` branch, same pattern as the macOS `darwin-rebuild` bootstrap), makes `~/.nix-profile/bin/zsh` your login shell, then installs Ubuntu's `uidmap` package (see "Rootless Docker" below). `<system>` is `x86_64-linux` or `aarch64-linux`, detected from `uname -m`, and the output name gains a `-basic` suffix when `.env` says `basic`. After that, `./rebuild.sh` works the same way it does on macOS.
 
 The last two steps are the only ones here that need `sudo`. The login-shell one matters more than it looks: this repo configures `programs.zsh` and nothing else, so on a box still logging you into Ubuntu's default `/bin/bash` none of it is ever sourced - no aliases, and no `SSH_AUTH_SOCK` (see "Persistent ssh-agent" below), which shows up as every `git pull` re-prompting for your key passphrase. The step adds the Nix zsh to `/etc/shells`, and refuses to switch if that zsh doesn't start: `sshd` hands you your login shell and nothing else, so a broken one locks you out of the machine. If `sudo` is unavailable or denied it warns and prints the two commands to run by hand rather than aborting a bootstrap that has otherwise fully succeeded. Open a new SSH session afterwards to pick it up. macOS already logs into zsh, so it skips this. The `uidmap` step is fault-isolated the same way, and is explained below.
 
@@ -121,6 +127,28 @@ If you clone it, review these before you run `bootstrap.sh`:
   Everything else (`configuration.nix`, `home.nix`, home directory paths) is threaded from that one variable.
 - **Host label**: change the single `hostLabel = "mac";` line in `flake.nix` (`rebuild.sh`/`bootstrap.sh` read it back out, so nothing else needs editing).
 - **CPU architecture**: on macOS, set `hostPlatform` in `configuration.nix` (see Prerequisites above); on Ubuntu, `bootstrap.sh` and `rebuild.sh` map `uname -m` to `x86_64-linux` or `aarch64-linux`.
+
+### Setup profile
+
+Every machine picks one of two profiles, and both `bootstrap.sh` and `rebuild.sh` refuse to run until it has:
+
+```sh
+cp .env.example .env
+```
+
+Then set `DOTFILES_SETUP` in `.env` to one of:
+
+- `personal` - the full setup: `scope = "personal"` Homebrew formulae and GUI casks on macOS (Slack, Discord, Notion, Figma, ...) on top of the shared dev tooling, plus the full TeX Live scheme on every OS.
+- `basic` - dev tooling only, the sensible choice on a server: no personal formulae or casks, and the minimal TeX Live scheme (just `pdflatex`/`xelatex`).
+
+`.env` is gitignored, because "is this a personal machine" is a per-machine answer - editing a committed file for it would drag the choice onto every other machine on the next `git pull`.
+
+The mechanism is a flake output per profile rather than a value `flake.nix` reads: Nix evaluates this repo as a git tree, so an untracked file never reaches the store and `builtins.readFile ./.env` could not find it.
+So `flake.nix` builds both (`mac` and `mac-basic`; `<user>@<system>` and `<user>@<system>-basic`), and `setup-env.sh` - sourced by `bootstrap.sh` and `rebuild.sh` - turns `DOTFILES_SETUP` into the `-basic` suffix, or refuses if the value is missing or unknown.
+`tests/setup-env.test.sh` covers both halves: the refusals, and that every suffix it can return names a flake output that really is built with that `usePersonalSetup`.
+
+To switch a machine's profile, edit `.env` and run `./rebuild.sh`.
+Going `personal` -> `basic` on macOS removes the personal casks, because `homebrew.onActivation.cleanup = "zap"` uninstalls anything the config no longer declares (see the Homebrew warning above).
 
 **Private shell values:** copy `home/.config/zsh/private-env.zsh.example` to
 `home/.config/zsh/private-env.zsh` and fill in any local-only values you want
@@ -262,7 +290,7 @@ Ubuntu:
 
 The invariant that keeps the macOS and Ubuntu paths aligned: installer selection always depends on `currentPlatform`, not on a tool's fields alone. A `platform=all; updatePolicy=fast; hasHomebrew=true` (the default) tool is Homebrew-managed only because `currentPlatform == "macos"` - on Ubuntu that same tool goes through `useNative` (a native installer) instead. A `platform=ubuntu` tool can never enter the Homebrew lists while `currentPlatform == "macos"`. The one exception is `hasHomebrew = false`: a tool with no real Homebrew formula (`no-mistakes`) goes through `useNative` on macOS too, since `useHomebrew` refuses to claim it there - see "About `no-mistakes`" above. `isCask` only decides `homebrew.casks` vs `homebrew.brews` for a tool the platform stage already selected for Homebrew - it plays no role in which installer is chosen. See `isEnabled`/`isForCurrentPlatform`/`useNix`/`useHomebrew`/`useNative`/`hasHomebrew` in `tool-selection.nix` (shared by `configuration.nix` and `home.nix`) for the exact predicates.
 
-One toggle controls both scopes: flip `usePersonalSetup` in `flake.nix` to `false` for dev tooling only - handy for a second, non-personal machine (e.g. a server).
+One toggle controls both scopes: `usePersonalSetup`. It isn't edited in `flake.nix` - it comes from this machine's `.env` (see "Setup profile" above), so a second, non-personal machine (e.g. a server) gets dev tooling only without a repo edit that would follow you onto every other machine.
 
 **Heads-up:**
 
@@ -274,7 +302,8 @@ One toggle controls both scopes: flip `usePersonalSetup` in `flake.nix` to `fals
 ## Repo tour
 
 - `flake.nix` - the entry point.
-  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew for the macOS `darwinConfigurations.mac` output, and nixpkgs + home-manager (standalone, no nix-darwin) for the Linux `homeConfigurations."<user>@<system>"` outputs; `usePersonalSetup` selects the brews/casks/Nix-package profile on both.
+  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew for the macOS `darwinConfigurations.mac` output, and nixpkgs + home-manager (standalone, no nix-darwin) for the Linux `homeConfigurations."<user>@<system>"` outputs; `usePersonalSetup` selects the brews/casks/Nix-package profile on both, and every output is built twice - once per setup profile, the `-basic` suffixed copy being `usePersonalSetup = false` (see "Setup profile" above).
+- `.env.example` / `setup-env.sh` - the per-machine setup profile: copy the example to the gitignored `.env`, and `setup-env.sh` (sourced by `bootstrap.sh` and `rebuild.sh`) turns `DOTFILES_SETUP` into the flake output suffix, or refuses to let either script run.
 - `configuration.nix` - macOS-only system-level config: system defaults, Homebrew, and macOS package selection (see "Package metadata" above).
 - `tools.nix` - the per-tool metadata table every platform selects packages from.
 - `tool-selection.nix` - the shared `isEnabled`/`isForCurrentPlatform`/`useNix`/`useHomebrew`/`useNative` predicates and selected output lists that turn `tools.nix` into concrete installers for one `currentPlatform`; used by both `configuration.nix` (macOS) and `home.nix` (Ubuntu).

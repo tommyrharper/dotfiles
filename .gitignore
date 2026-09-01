@@ -22,6 +22,10 @@ result-*
 # rebuild (~/.pi/agent/extensions is a tracked, symlinked directory) - never commit it
 /home/.pi/agent/extensions/herdr-agent-state.ts
 
+# This machine's setup profile (personal or basic), read by setup-env.sh;
+# copy from .env.example and keep local - it is per-machine, never repo-wide
+/.env
+
 # Private shell values read by home.nix; copy from the example and keep local
 /home/.config/zsh/private-env.zsh
 
