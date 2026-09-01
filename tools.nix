@@ -87,6 +87,13 @@
   # home/.config/nvim/lua/plugins/format.lua). Nix's `prettier` bundles its own
   # node, so it does not depend on the npm-backed toolchain above.
   { name = "prettier"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # The Nix language server nvim attaches to .nix buffers (see
+  # home/.config/nvim/lua/plugins/lsp.lua). Unlike this repo's other servers it
+  # is not mason-installed: mason's registry has no nixd at all, and its only
+  # other Nix server, `nil`, is a cargo package that would need a Rust
+  # toolchain on every machine to build from source. nixpkgs ships nixd as a
+  # binary, and a repo that is itself Nix is guaranteed to have Nix.
+  { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }

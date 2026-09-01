@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The LSP plugin spec is wired up as intended: all servers in mason's
-# ensure_installed (basedpyright, ruff, ts_ls), ruff's hover disabled so it
-# does not fight basedpyright, basedpyright on typeCheckingMode "basic", and
+# ensure_installed (basedpyright, ruff, ts_ls), nixd explicitly enabled since
+# mason has no nixd to enable it for us, ruff's hover disabled so it does not
+# fight basedpyright, basedpyright on typeCheckingMode "basic", and
 # format.lua formatting python with ruff on save.
 #
 # This loads the spec as real Lua rather than grepping it, so a typo in a key
@@ -46,6 +47,11 @@ local fake = { server_capabilities = { hoverProvider = true } }
 vim.lsp.config['ruff'].on_attach(fake)
 want(fake.server_capabilities.hoverProvider == false, 'ruff on_attach does not disable hover')
 
+-- nixd is not a mason package, so nothing enables it on our behalf the way
+-- mason-lspconfig does for the three above; this explicit enable is the only
+-- thing attaching a server to .nix buffers.
+want(vim.lsp.is_enabled('nixd'), 'nixd is not enabled for nix buffers')
+
 -- conform.nvim itself lives in format.lua, which owns format-on-save for
 -- every filetype at once; only the python mapping is this file's business.
 local fmt = dofile(os.getenv('FORMAT_SPEC'))[1].opts
@@ -60,4 +66,4 @@ FORMAT_SPEC="$ROOT/home/.config/nvim/lua/plugins/format.lua" \
   nvim --clean -l "$tmp/check.lua" >/dev/null 2>"$tmp/err" \
   || fail "$(cat "$tmp/err")"
 
-pass "nvim LSP spec installs basedpyright + ruff + ts_ls and formats python with conform"
+pass "nvim LSP spec installs basedpyright + ruff + ts_ls, enables nixd, and formats python with conform"

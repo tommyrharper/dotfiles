@@ -1,7 +1,9 @@
--- Language servers and completion for Python and TypeScript/TSX. Formatting
--- is conform.nvim's, in format.lua, on <leader>F for every filetype at once.
--- The servers are installed by mason rather than Nix, so this file is the
--- single source of truth for what these buffers get.
+-- Language servers and completion for Python, TypeScript/TSX, and Nix.
+-- Formatting is conform.nvim's, in format.lua, on <leader>F for every
+-- filetype at once. The Python and TypeScript servers are installed by mason
+-- rather than Nix; nixd comes from tools.nix instead (mason has no nixd), so
+-- between the two this file is still the single source of truth for what
+-- these buffers get.
 return {
   -- mason installs the server binaries into ~/.local/share/nvim/mason/bin.
   {
@@ -45,6 +47,12 @@ return {
           client.server_capabilities.hoverProvider = false
         end,
       })
+
+      -- nixd: from tools.nix, on PATH, so mason-lspconfig never sees it and
+      -- nothing enables it for us. lspconfig ships its cmd/filetypes/root
+      -- markers, and its defaults are enough for this repo's flake, so this
+      -- is an enable with no settings of its own.
+      vim.lsp.enable('nixd')
 
       -- Autotriggered completion off the built-in LSP source (nvim 0.11+),
       -- so no separate completion plugin is needed.
