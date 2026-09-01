@@ -121,6 +121,7 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | --- | --- | --- |
 | `ffmpeg` | Media transcoding | Both |
 | `lcov` | Coverage reports | Both |
+| `tdf` | TUI PDF viewer | Both |
 | `libusb` | USB library | Both |
 | `fuck` (thefuck) | Correct the previous command | macOS only |
 | `echidna` | Solidity fuzzer | macOS only |

@@ -78,7 +78,10 @@ FLAKE_USER=thomasharper
 # collided with BSD cu(1), the serial dial-out tool already on PATH.
 # Re-pin again after adding the `skim` cask to tools.nix: a macOS-only GUI app
 # lands in homebrew.casks, so the darwin derivation legitimately changes.
-EXPECTED_DARWIN_DRVPATH="/nix/store/npbf37hkz345zz6x738p7nkaf0w05y4f-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding tdf (platform = "all", updatePolicy = "stable"):
+# a Nix package addition lands in environment.systemPackages on macOS too,
+# so the darwin derivation legitimately changes.
+EXPECTED_DARWIN_DRVPATH="/nix/store/ysjr1243ai63g3s021shp9643c57jwcm-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
