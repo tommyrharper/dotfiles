@@ -72,10 +72,11 @@ FLAKE_USER=thomasharper
 # only the answer to stdout, and an alias cannot both drop that stderr and
 # still take the prompt as an argument. The noise is identical on both
 # platforms, so the function is deliberately not gated.
-# Re-pin again after adding the `cu` alias (home.nix): shellAliases is shared,
-# not platform-gated, so a new alias legitimately changes the darwin derivation
-# too.
-EXPECTED_DARWIN_DRVPATH="/nix/store/q8vmk670sq4za62c4ccwq4rybcqpkg7p-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding, then renaming to `ag`, the cursor-agent alias
+# (home.nix): shellAliases is shared, not platform-gated, so a new alias
+# legitimately changes the darwin derivation too. `cu` was the first name and
+# collided with BSD cu(1), the serial dial-out tool already on PATH.
+EXPECTED_DARWIN_DRVPATH="/nix/store/p8mlka9vja3q4g1g23z2k9j1ddjs6fv2-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
