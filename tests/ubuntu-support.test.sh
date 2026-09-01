@@ -103,7 +103,10 @@ FLAKE_USER=thomasharper
 # macOS-only personal tool: it lands in homebrew.brews, so the darwin
 # derivation legitimately changes. Ubuntu is untouched - platform = "macos"
 # keeps it out of every Linux list.
-EXPECTED_DARWIN_DRVPATH="/nix/store/mpl3vm2mhyxk4jmm0li2kmk3lj8bgyhs-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding tdf (platform = "all", updatePolicy = "stable"):
+# a Nix package addition lands in environment.systemPackages on macOS too,
+# so the darwin derivation legitimately changes.
+EXPECTED_DARWIN_DRVPATH="/nix/store/mdrbzc83y0cy0q2cr6jq2b8d0w1p2zaz-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
