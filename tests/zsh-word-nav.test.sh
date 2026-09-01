@@ -39,9 +39,17 @@ lookup() {
   HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" EDITOR=nvim zsh -ic "bindkey '$1'" 2>/dev/null
 }
 
+# Which keymap `main` resolves to is environment-dependent, and both answers
+# are a real shell: "nvim" contains "vi", so zsh picks viins on a box with no
+# global rc, while macOS's /etc/zshrc runs `bindkey -e` before any user rc and
+# pins emacs there. Pinning one of them here would just re-test zsh's own
+# startup rules and fail on the other platform. What Option+arrow actually
+# depends on is the four sequences below being bound in whatever `main` is -
+# and on emacs, where Esc-b/Esc-f come pre-bound, the CSI pair is the half that
+# only this config provides.
 keymap=$(HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" EDITOR=nvim zsh -ic 'bindkey -lL main' 2>/dev/null)
-assert_contains "$keymap" "viins" \
-  "EDITOR=nvim no longer selects the vi keymap; this test is no longer reproducing the real shell"
+[ -n "$keymap" ] \
+  || fail "could not read the main keymap; zsh did not start with this config, so nothing below is being tested"
 
 # Esc-b/Esc-f is what wezterm.lua sends; CSI 1;3D/1;3C is what a terminal sends
 # for a modified arrow when nothing remaps it. Either can arrive, so bind both.
