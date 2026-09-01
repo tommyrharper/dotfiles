@@ -42,6 +42,23 @@ config.keys = {
   { key = "k", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Up") },
   { key = "j", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Down") },
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
+  -- Leader+o: QuickSelect restricted to URLs, then open the picked one in the
+  -- default browser. Ctrl+Shift+Space (wezterm's built-in QuickSelect) is left
+  -- alone and still just copies the hinted text to the clipboard.
+  {
+    key = "o",
+    mods = "LEADER",
+    action = act.QuickSelectArgs({
+      label = "open url",
+      patterns = { "https?://\\S+" },
+      action = wezterm.action_callback(function(window, pane)
+        local url = window:get_selection_text_for_pane(pane)
+        if url and url ~= "" then
+          wezterm.open_with(url)
+        end
+      end),
+    }),
+  },
   -- AI-fill the Zsh input buffer: sends Ctrl-G, bound in home.nix to ai-fill-buffer.
   { key = "g", mods = "LEADER", action = wezterm.action.SendKey({ key = "g", mods = "CTRL" }) },
   -- Option+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude agents view).
