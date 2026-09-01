@@ -357,6 +357,8 @@ Neovim keeps italics off and uses a transparent background on macOS, Windows, an
 
 Python files get `basedpyright` (types, completion, navigation) and `ruff` (linting, code actions, formatting), configured in `home/.config/nvim/lua/plugins/lsp.lua`.
 Both servers are installed by `mason`, not Nix, on first non-headless launch - `mason-lspconfig` skips `ensure_installed` when Neovim is headless, so `:Mason` is where you watch it happen or retry.
+Nix files get `nixd`, enabled in the same file but installed by `tools.nix` rather than mason - mason's registry has no `nixd`, and its only other Nix server (`nil`) is a cargo package that would need a Rust toolchain on every machine to build from source.
+So `nixd` needs a `./rebuild.sh` rather than a `:Mason` run to appear.
 Ubuntu additionally gets Nix's `python3`, because mason installs basedpyright from PyPI into a venv and Ubuntu's system interpreter ships without `ensurepip`.
 macOS is left alone here - its Xcode Command Line Tools `python3` already does this, the same arrangement as the `gcc`/`gnumake`/`pkg-config` entries, and a Nix `python3` would shadow the system one in PATH rather than sit beside it.
 
