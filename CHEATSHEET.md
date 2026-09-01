@@ -104,7 +104,7 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `cmake` | Build system generator |
 | `uv` | Python project runner |
 | `tar` / `gzip` / `bzip2` | Archives |
-| `pdflatex` / `xelatex` | TeX Live; full scheme when `usePersonalSetup = true`, otherwise basic |
+| `pdflatex` / `xelatex` | TeX Live; full scheme when `.env` has `DOTFILES_SETUP=personal`, otherwise basic |
 | `claude` | Claude Code |
 | `codex` | OpenAI Codex CLI |
 | `pi` | Pi coding agent |
@@ -115,7 +115,7 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `no-mistakes` | Validation pipeline CLI |
 | `treehouse` | Worktree pool manager |
 
-### Personal machines only (`usePersonalSetup = true`)
+### Personal machines only (`DOTFILES_SETUP=personal` in `.env`)
 
 | Command | What it does | Platform |
 | --- | --- | --- |
