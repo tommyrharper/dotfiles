@@ -76,7 +76,9 @@ FLAKE_USER=thomasharper
 # (home.nix): shellAliases is shared, not platform-gated, so a new alias
 # legitimately changes the darwin derivation too. `cu` was the first name and
 # collided with BSD cu(1), the serial dial-out tool already on PATH.
-EXPECTED_DARWIN_DRVPATH="/nix/store/p8mlka9vja3q4g1g23z2k9j1ddjs6fv2-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding the `skim` cask to tools.nix: a macOS-only GUI app
+# lands in homebrew.casks, so the darwin derivation legitimately changes.
+EXPECTED_DARWIN_DRVPATH="/nix/store/npbf37hkz345zz6x738p7nkaf0w05y4f-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then

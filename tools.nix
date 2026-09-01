@@ -129,4 +129,8 @@
   { name = "todoist-app"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; isCask = true; }
   { name = "anki"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; isCask = true; }
   { name = "zoom"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; isCask = true; }
+  # PDF reader/annotator (skim-app.sourceforge.io). The `skim` cask is the
+  # GUI app; the unrelated `sk` fuzzy finder also calls itself skim, but that
+  # one is a Homebrew formula named `sk`, so there is no collision here.
+  { name = "skim"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; isCask = true; }
 ]

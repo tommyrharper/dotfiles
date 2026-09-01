@@ -139,7 +139,7 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 
 ### macOS GUI apps (casks, personal setup only)
 
-WezTerm, OpenSuperWhisper, Slack, Discord, Notion, Figma, Altair GraphQL Client, MongoDB Compass, Todoist, Anki, Zoom.
+WezTerm, OpenSuperWhisper, Slack, Discord, Notion, Figma, Altair GraphQL Client, MongoDB Compass, Todoist, Anki, Zoom, Skim (PDF reader).
 
 ## Neovim
 
