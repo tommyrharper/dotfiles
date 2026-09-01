@@ -219,7 +219,8 @@ in
       m = "git switch main";
       cc = "claude --dangerously-skip-permissions";
       co = "codex -s workspace-write -a never";
-      cu = "cursor-agent --force --trust --approve-mcps --sandbox disabled";
+      # Not `cu`: that is BSD cu(1), the serial dial-out tool, already on PATH.
+      ag = "cursor-agent --force --trust --approve-mcps --sandbox disabled";
       gitverify = "ssh-add ${config.home.homeDirectory}/.ssh/id_rsa";
 
       # One-shot, no tools
