@@ -34,6 +34,7 @@ Defined in `home.nix` `programs.zsh.shellAliases`.
 | --- | --- | --- |
 | `cc` | `claude --dangerously-skip-permissions` | High agency, no prompts |
 | `co` | `codex -s workspace-write -a never` | Writes in workspace, never asks |
+| `cu` | `cursor-agent --force --trust --approve-mcps --sandbox disabled` | High agency, no prompts, no sandbox |
 | `askclaude` | `claude -p --tools=""` | One-shot, no tools |
 | `askpi` | `pi --no-context-files --exclude-tools read,write,edit,bash -p` | One-shot, no tools |
 | `askcodex` | `codex exec --ephemeral --sandbox read-only` (function) | One-shot, no tools; answer only, stderr shown only on failure |
