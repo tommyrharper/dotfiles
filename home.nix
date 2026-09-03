@@ -68,8 +68,10 @@ in
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
           ${if t.nativeInstallUrl or null != null then
             ''echo "Would install ${t.name} via ${t.nativeInstallUrl}"''
-          else
+          else if t.nativeInstallNpmPackage or null != null then
             ''echo "Would install ${t.name} via npm install -g ${t.nativeInstallNpmPackage}"''
+          else
+            ''echo "Would install ${t.name} via uv tool install ${t.nativeInstallUvTool}"''
           }
         else
           (
@@ -110,8 +112,14 @@ in
             set -o pipefail
             ${if t.nativeInstallUrl or null != null then ''
               ${pkgs.curl}/bin/curl -fsSL ${lib.escapeShellArg t.nativeInstallUrl} | ${pkgs.runtimeShell}
-            '' else ''
+            '' else if t.nativeInstallNpmPackage or null != null then ''
               ${pkgs.nodejs}/bin/npm install -g ${lib.escapeShellArg t.nativeInstallNpmPackage}
+            '' else ''
+              # uv resolves its tool bin dir from XDG_BIN_HOME/XDG_DATA_HOME
+              # before falling back to ~/.local/bin; pin it so the launcher
+              # always lands where the skip-check above and home.sessionPath
+              # look, whatever XDG vars the activation env happens to carry.
+              UV_TOOL_BIN_DIR="$HOME/.local/bin" ${pkgs.uv}/bin/uv tool install ${lib.escapeShellArg t.nativeInstallUvTool}
             ''}
           # Fault isolation: activation scripts run under `set -e`, so one
           # tool's install failing (e.g. a transient network error, or an

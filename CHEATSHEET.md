@@ -114,6 +114,7 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `gnhf` | gnhf CLI |
 | `no-mistakes` | Validation pipeline CLI |
 | `treehouse` | Worktree pool manager |
+| `specify` | GitHub Spec Kit CLI (`specify init` scaffolds spec-driven projects) |
 
 ### Personal machines only (`DOTFILES_SETUP=personal` in `.env`)
 
