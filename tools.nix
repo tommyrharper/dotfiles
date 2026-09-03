@@ -67,6 +67,7 @@
   # this tool. Not a plain nixName entry either - nixpkgs has no treehouse
   # attribute (verified with builtins.hasAttr against this flake's nixpkgs).
   { name = "treehouse"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
+  { name = "spec-kit"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUvTool = "specify-cli"; nativeInstallBinName = "specify"; hasHomebrew = false; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }

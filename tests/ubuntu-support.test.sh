@@ -86,7 +86,11 @@ FLAKE_USER=thomasharper
 # macOS-only personal tool: it lands in homebrew.brews, so the darwin
 # derivation legitimately changes. Ubuntu is untouched - platform = "macos"
 # keeps it out of every Linux list.
-EXPECTED_DARWIN_DRVPATH="/nix/store/armpccyhq6w4vj7n6bpis89zg8ix1408-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding spec-kit (platform = "all", updatePolicy = "fast",
+# hasHomebrew = false): like no-mistakes it has no Homebrew formula, so it
+# joins installNativeTools on macOS as well as Ubuntu, adding a `uv tool
+# install specify-cli` block to the shared activation script.
+EXPECTED_DARWIN_DRVPATH="/nix/store/c7dv86ifhq3s6prcglhg0km976nfgrnb-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -216,7 +220,8 @@ pi-coding-agent pi
 gnhf gnhf
 opencode opencode
 no-mistakes no-mistakes
-treehouse treehouse"
+treehouse treehouse
+spec-kit specify"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
     "Would install codex via https://chatgpt.com/codex/install.sh"
@@ -228,6 +233,7 @@ treehouse treehouse"
     "Would install opencode via npm install -g opencode-ai"
     "Would install no-mistakes via https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"
     "Would install treehouse via https://kunchenguid.github.io/treehouse/install.sh"
+    "Would install spec-kit via uv tool install specify-cli"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
   for system in x86_64-linux aarch64-linux; do
@@ -244,7 +250,7 @@ treehouse treehouse"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -264,7 +270,7 @@ treehouse treehouse"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse; do
+    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse specify; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -273,7 +279,7 @@ treehouse treehouse"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, and treehouse's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {
@@ -430,24 +436,26 @@ test_linux_native_install_fault_isolation() {
   pass "installNativeTools isolates each tool's install failure for both Linux homeConfigurations outputs - one broken installer no longer blocks the rest"
 }
 
-test_darwin_native_install_only_no_mistakes() {
+test_darwin_native_install_only_homebrewless_tools() {
   if ! command -v nix >/dev/null 2>&1; then
     echo "skip: nix not found for Darwin native-install check"
     return 0
   fi
   # installNativeTools now runs on both platforms (no longer gated
-  # lib.mkIf (!isDarwin)): no-mistakes has no Homebrew formula at all
-  # (hasHomebrew = false in tools.nix), so it is the first tool that needs
+  # lib.mkIf (!isDarwin)): no-mistakes and spec-kit have no Homebrew formula
+  # at all (hasHomebrew = false in tools.nix), so they are the tools that need
   # the native installer on macOS too. The other nine fast/all tools
   # (claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent,
   # gnhf, opencode, treehouse) must
   # stay exactly where they were - Homebrew-managed on macOS - so this script
-  # must mention no-mistakes and nothing else.
+  # must mention those two and nothing else.
   local data brews casks names other_marker
   data=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.activation.installNativeTools.data' 2>/dev/null) \
     || fail "darwinConfigurations.mac has no installNativeTools activation script - no-mistakes (hasHomebrew = false) needs it on macOS too"
   assert_contains "$data" "https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh" \
-    "darwinConfigurations.mac installNativeTools must install no-mistakes (its only Homebrew-less fast/all tool)"
+    "darwinConfigurations.mac installNativeTools must install no-mistakes (a Homebrew-less fast/all tool)"
+  assert_contains "$data" "uv tool install specify-cli" \
+    "darwinConfigurations.mac installNativeTools must install spec-kit (a Homebrew-less fast/all tool) via uv"
   # Distinctive install commands, not bare tool names: every tool's shared
   # per-block comment text mentions "codex" and "pi-coding-agent" by name
   # regardless of which tool the block is actually for (e.g. the
@@ -476,6 +484,10 @@ test_darwin_native_install_only_no_mistakes() {
     "darwinConfigurations.mac must not put no-mistakes in homebrew.brews - it has no Homebrew formula and brew bundle would fail"
   assert_not_contains "$casks" "\"no-mistakes\"" \
     "darwinConfigurations.mac must not put no-mistakes in homebrew.casks either"
+  assert_not_contains "$brews" "\"spec-kit\"" \
+    "darwinConfigurations.mac must not put spec-kit in homebrew.brews - it has no Homebrew formula and brew bundle would fail"
+  assert_not_contains "$casks" "\"spec-kit\"" \
+    "darwinConfigurations.mac must not put spec-kit in homebrew.casks either"
   # The mirror image of no-mistakes: treehouse is also a kunchenguid CLI
   # installed from its own install.sh on Ubuntu, but it does have a real
   # homebrew-core formula, so it keeps the default hasHomebrew = true and
@@ -491,7 +503,7 @@ test_darwin_native_install_only_no_mistakes() {
   [ "$names" = "true" ] \
     || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
 
-  pass "darwinConfigurations.mac's installNativeTools handles only no-mistakes; the other nine fast/all tools stay Homebrew-managed, and no-mistakes never lands in homebrew.brews/casks"
+  pass "darwinConfigurations.mac's installNativeTools handles only the Homebrew-less tools (no-mistakes, spec-kit); the other nine fast/all tools stay Homebrew-managed, and neither lands in homebrew.brews/casks"
 }
 
 test_linux_ssh_agent_persists() {
@@ -872,7 +884,7 @@ test_linux_native_install_tools_wired
 test_herdr_integrations_run_after_native_install_on_linux
 test_linux_archive_tools_present_for_native_installers
 test_linux_native_install_fault_isolation
-test_darwin_native_install_only_no_mistakes
+test_darwin_native_install_only_homebrewless_tools
 test_linux_ssh_agent_persists
 test_linux_ssh_agent_lingers_across_sessions
 test_darwin_ssh_agent_not_duplicated

@@ -93,7 +93,7 @@ Two extra steps need `sudo`. Both are fault-isolated: if `sudo` is unavailable t
 
 No Homebrew casks or GUI apps (no desktop environment to run them), and no `platform = "macos"` tools from `tools.nix`: `thefuck`, `echidna`, `solc-select`, `foundry`, `tenderly`, `postgresql`, `libpq`, `colima`.
 
-Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `installNativeTools` activation script installs each from its own `nativeInstallUrl` script or `nativeInstallNpmPackage`, skipping any already present in `~/.local/bin` (see `nativeInstallBinName` for tools whose launcher name differs from their entry name). It pre-creates and exports `~/.local/bin` and sets `CODEX_NON_INTERACTIVE=1` and `NPM_CONFIG_PREFIX=$HOME/.local`, so no installer prompts or rewrites a shell rc, and `home.sessionPath` keeps that directory reachable afterwards.
+Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `installNativeTools` activation script installs each from its own `nativeInstallUrl` script, `nativeInstallNpmPackage`, or `nativeInstallUvTool`, skipping any already present in `~/.local/bin` (see `nativeInstallBinName` for tools whose launcher name differs from their entry name). It pre-creates and exports `~/.local/bin` and sets `CODEX_NON_INTERACTIVE=1` and `NPM_CONFIG_PREFIX=$HOME/.local`, so no installer prompts or rewrites a shell rc, and `home.sessionPath` keeps that directory reachable afterwards.
 
 `NPM_CONFIG_PREFIX` is *also* set via `home.sessionVariables` (Linux only), so interactive shells resolve `npm root -g` to `~/.local/lib/node_modules` rather than the read-only Nix store. Both must stay in sync: the generated activation script runs with its own environment and never sources `hm-session-vars.sh`. `pkgs.nodejs` is in `home.packages` on Linux because the npm-backed launchers shebang into `node` at runtime, not just during install. macOS is unaffected, and the attribute is gated with `lib.optionalAttrs` so it is absent from the darwin evaluation entirely.
 
@@ -174,6 +174,7 @@ Optional overrides, used only where a tool needs them:
 | `brewName` / `nixName`    | Package name differs from the entry `name`                 |
 | `nativeInstallUrl`        | Non-interactive installer script for a `useNative` tool    |
 | `nativeInstallNpmPackage` | Same idea, for a tool distributed only as an npm package   |
+| `nativeInstallUvTool`     | Same idea, for a PyPI CLI installed with `uv tool install` |
 | `nativeInstallBinName`    | Launcher name the "already installed" skip-check looks for |
 
 Why a given tool is wired the way it is - no Homebrew formula, a hardcoded install path, a colliding npm name - is commented on its own `tools.nix` entry. If you don't use one, delete its entry; for `herdr`, also delete the `installHerdrAgentIntegrations` block in `home.nix`.
@@ -207,7 +208,7 @@ Ubuntu:
   fast + ubuntu    -> native installer
 ```
 
-A native installer only actually runs for tools that set `nativeInstallUrl` or `nativeInstallNpmPackage`.
+A native installer only actually runs for tools that set `nativeInstallUrl`, `nativeInstallNpmPackage`, or `nativeInstallUvTool`.
 
 The invariant that keeps the two paths aligned: installer selection depends on `currentPlatform`, never on a tool's fields alone. The same `platform=all; updatePolicy=fast` tool is Homebrew-managed on macOS and natively installed on Ubuntu. `hasHomebrew = false` is the one exception, routing a tool with no formula through the native installer on macOS too. `isCask` only picks `homebrew.casks` over `homebrew.brews` for a tool already selected for Homebrew.
 
