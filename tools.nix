@@ -119,15 +119,7 @@
   { name = "thefuck"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "echidna"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "solc-select"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
-  # Ethereum dev toolkit (github.com/foundry-rs/foundry). One homebrew-core
-  # formula named `foundry` installs all four binaries - forge, cast, anvil,
-  # chisel - plus their man pages and zsh completions, so there is nothing to
-  # add per binary here. Deliberately not upstream's `foundryup` installer:
-  # that one drops a version manager into ~/.foundry/bin and appends to a
-  # shell rc, which is exactly the PATH-side-effect shape `nativeInstallUrl`
-  # exists to avoid. Its `forge`/`chisel` binaries collide with the unrelated
-  # `jboss-forge` and `chisel-tunnel` formulae (Homebrew declares both as
-  # conflicts); neither is installed here or listed in this file.
+  # One formula, four binaries: forge, cast, anvil, chisel.
   { name = "foundry"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "tenderly"; scope = "personal"; platform = "macos"; updatePolicy = "fast"; brewName = "tenderly/tenderly/tenderly"; }
   { name = "postgresql"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; brewName = "postgresql@15"; }

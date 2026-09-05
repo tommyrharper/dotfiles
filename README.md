@@ -4,7 +4,7 @@ Watch the walkthrough: https://youtu.be/5N-okeDdIuI
 
 My personal Mac setup, managed with nix-darwin and home-manager.
 One repo, one command, and a fresh Mac ends up configured the same way every time.
-It also supports a bare Ubuntu 22.04 LTS machine via standalone home-manager - see "Ubuntu setup" below.
+Bare Ubuntu 22.04 LTS is supported too, through standalone home-manager.
 
 ## Contributing / Using This Repo
 
@@ -14,77 +14,48 @@ If you find a bug, please open a GitHub Issue using the bug report template.
 
 ## What you get
 
-On macOS, running the switch builds:
+On macOS:
 
 - System settings (dark mode, key repeat, dock, Finder, trackpad)
 - Homebrew apps (casks and CLI tools)
 - Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, Hack Nerd Font, TeX Live)
 - Shell (zsh, aliases, starship prompt)
-- Editor (Neovim config with the rose-pine moon theme)
-- Terminal (WezTerm config with the rose-pine moon theme and dimmed unfocused windows)
+- Neovim and WezTerm, both on the rose-pine moon theme
 - Agent configs (Claude, Codex, opencode all share one AGENTS.md)
-- Optional Pi theme and local extensions, generic UI settings and model overrides, plus two deliberately pinned third-party Pi packages
+- Optional Pi theme, local extensions, settings/model overrides, and two pinned third-party packages
 
-Ubuntu gets the shared shell, CLI packages, prompt, git, and symlinked dotfiles; see "Ubuntu setup" for the narrower Linux surface.
+Ubuntu gets the shared shell, CLI packages, prompt, git, and symlinked dotfiles. See "Ubuntu setup".
 
 ## Prerequisites
 
-- Apple Silicon Mac, by default.
-- Intel Mac: change one line.
-  In `configuration.nix`, set `nixpkgs.hostPlatform = "x86_64-darwin";` (the comment right there tells you the same thing).
-- Ubuntu 22.04 LTS ("base free" - a plain install, no desktop environment) also works; see "Ubuntu setup" below instead of the macOS steps that follow.
+- Apple Silicon Mac by default. On Intel, set `nixpkgs.hostPlatform = "x86_64-darwin";` in `configuration.nix`.
+- Ubuntu 22.04 LTS (a plain install, no desktop environment) also works. See "Ubuntu setup" instead of the macOS steps below.
 
 ## Fresh-machine setup
 
-On a brand new Mac, from a bare clone of this repo:
+Read "Make it yours" first. `bootstrap.sh` applies the config to your machine, and Homebrew cleanup can uninstall packages you already have.
 
 ```sh
 git clone https://github.com/kunchenguid/dotfiles.git
 cd dotfiles
-```
-
-Before you run it: review "Make it yours" below.
-Change the host label or CPU architecture if needed, and read the Homebrew cleanup warning.
-`bootstrap.sh` applies the config to your machine, so do this first.
-
-Then choose this machine's setup profile - `bootstrap.sh` refuses to start until you have:
-
-```sh
 cp .env.example .env
 # set DOTFILES_SETUP=personal (full setup) or DOTFILES_SETUP=basic (dev tooling only)
 ./bootstrap.sh
 ```
 
-`bootstrap.sh` does six things, in order:
+`bootstrap.sh` reads `DOTFILES_SETUP` and refuses to go further without it, installs Determinate Nix, symlinks the repo to `~/.dotfiles` (the build resolves config files through that path), offers to fix `flake.nix`'s `user` line if it does not match your macOS username, marks the repo safe for root (`darwin-rebuild` runs under `sudo`, so root evaluates this flake's `git+file://` input), then runs the first `darwin-rebuild switch`.
 
-0. Reads `DOTFILES_SETUP` out of `.env` and refuses to go further if it is missing or not one of `personal`/`basic` (see "Setup profile" below).
-1. Installs Determinate Nix, if it isn't already installed.
-2. Symlinks this repo to `~/.dotfiles`.
-   This has to happen before the first build, because `home.nix` points at config files through `~/.dotfiles`.
-3. Checks the `user` configured in `flake.nix` against your actual macOS username, and offers to fix it for you if they differ.
-4. Trusts this repo for root, via `git config -f /etc/gitconfig --add safe.directory`.
-   `darwin-rebuild` always runs via `sudo`, so root evaluates this flake's `git+file://` input; without this, libgit2 refuses to open a repo owned by another user.
-5. Runs the first `darwin-rebuild switch`.
-   It fetches the `darwin-rebuild` tool from the nix-darwin 26.05 release branch, then applies this repo's locked flake config.
-
-After that, `darwin-rebuild` exists and you're on the normal workflow below.
+After that you are on the normal workflow below.
 
 ### Validate without applying
-
-Once Nix is installed (`bootstrap.sh` step 1 handles that), you can check that the config builds without touching your system - handy when you have edited something:
 
 ```sh
 nix flake check --no-build
 nix build .#darwinConfigurations.mac.system --dry-run
-```
-
-If you renamed the host label in "Make it yours", substitute your label for `mac` in these commands. On Ubuntu, substitute `.#homeConfigurations."<user>@<system>".activationPackage` (e.g. `thomasharper@x86_64-linux`) for the `darwinConfigurations.mac.system` output.
-
-Run the test suite with:
-
-```sh
 ./test.sh
 ```
+
+Substitute your own host label for `mac` if you renamed it. On Ubuntu, build `.#homeConfigurations."<user>@<system>".activationPackage` instead (e.g. `thomasharper@x86_64-linux`).
 
 ## Daily use
 
@@ -94,110 +65,73 @@ Edit the config files in place, then apply:
 ./rebuild.sh
 ```
 
-That's it.
-No separate build-and-copy step.
+That's it. No separate build-and-copy step.
 
 ## Ubuntu setup
 
-Ubuntu 22.04 LTS ("base free" - a plain install, no desktop environment, nothing pre-configured) is supported through a separate, simpler path: standalone home-manager, not nix-darwin. After Nix is installed, the managed config is user-level only: no sudo rebuild, no Homebrew, no system-level config - just your shell, git, starship, zoxide, and the symlinked dotfiles under `home/`.
+Standalone home-manager, not nix-darwin: user-level only. No sudo rebuild, no Homebrew, no system config. Just your shell, git, starship, zoxide, and the symlinked dotfiles under `home/`.
 
 ```sh
 git clone https://github.com/kunchenguid/dotfiles.git
 cd dotfiles
-cp .env.example .env   # then set DOTFILES_SETUP - `basic` is the usual choice on a server
+cp .env.example .env   # `basic` is the usual choice on a server
 ./bootstrap.sh
 ```
 
-On Linux, `bootstrap.sh` does seven things: reads the setup profile from `.env` and refuses to continue unless it is set (see "Setup profile" below), installs Determinate Nix (same installer as macOS), symlinks this repo to `~/.dotfiles`, offers to fix the `user` line in `flake.nix` if it doesn't match your Ubuntu username, runs the first `home-manager switch --flake ~/.dotfiles#<user>@<system>` (pinned to the home-manager `release-26.05` branch, same pattern as the macOS `darwin-rebuild` bootstrap), makes `~/.nix-profile/bin/zsh` your login shell, then installs Ubuntu's `uidmap` package (see "Rootless Docker" below). `<system>` is `x86_64-linux` or `aarch64-linux`, detected from `uname -m`, and the output name gains a `-basic` suffix when `.env` says `basic`. After that, `./rebuild.sh` works the same way it does on macOS.
+Same shape as the macOS bootstrap, ending in `home-manager switch --flake ~/.dotfiles#<user>@<system>` instead of `darwin-rebuild switch`. `<system>` is `x86_64-linux` or `aarch64-linux`, detected from `uname -m`, and `basic` adds a `-basic` suffix to the output name.
 
-The last two steps are the only ones here that need `sudo`. The login-shell one matters more than it looks: this repo configures `programs.zsh` and nothing else, so on a box still logging you into Ubuntu's default `/bin/bash` none of it is ever sourced - no aliases, and no `SSH_AUTH_SOCK` (see "Persistent ssh-agent" below), which shows up as every `git pull` re-prompting for your key passphrase. The step adds the Nix zsh to `/etc/shells`, and refuses to switch if that zsh doesn't start: `sshd` hands you your login shell and nothing else, so a broken one locks you out of the machine. If `sudo` is unavailable or denied it warns and prints the two commands to run by hand rather than aborting a bootstrap that has otherwise fully succeeded. Open a new SSH session afterwards to pick it up. macOS already logs into zsh, so it skips this. The `uidmap` step is fault-isolated the same way, and is explained below.
+Two extra steps need `sudo`. Both are fault-isolated: if `sudo` is unavailable they warn and print the manual commands rather than failing a bootstrap that otherwise succeeded.
+
+- **Login shell.** This repo configures `programs.zsh` and nothing else, so on a box still logging you into `/bin/bash` none of it is ever sourced: no aliases, and no `SSH_AUTH_SOCK`, which shows up as every `git pull` re-prompting for your key passphrase. The step adds the Nix zsh to `/etc/shells` and refuses to switch if that zsh does not start, since `sshd` hands you your login shell and nothing else. Open a new SSH session to pick it up. macOS already logs into zsh.
+- **`uidmap`.** For rootless Docker, below.
 
 ### Rootless Docker
 
-On Linux, `home.nix` runs Docker as a rootless `systemd --user` service (`systemctl --user status docker`), and sets `DOCKER_HOST` to `unix:///run/user/$(id -u)/docker.sock` so the CLI finds it. `pkgs.docker` already carries `dockerd-rootless` and the rootlesskit/slirp4netns/fuse-overlayfs it shells out to, so `rebuild.sh` covers everything except one file: setuid `/usr/bin/newuidmap`. RootlessKit execs it by name to apply your `/etc/subuid` range, and a Nix store binary can never be setuid - hence the `sudo apt-get install -y uidmap` in `bootstrap.sh`'s step 6. Without it the unit starts and immediately dies with `newuidmap: executable file not found in $PATH`. The daemon survives between SSH sessions for the same reason the ssh-agent does: `enable-linger` (see "Persistent ssh-agent"). macOS gets Docker from Colima instead, so none of this applies there.
+`home.nix` runs Docker as a rootless `systemd --user` service (`systemctl --user status docker`) with `DOCKER_HOST` set to `unix:///run/user/$(id -u)/docker.sock`. `pkgs.docker` ships `dockerd-rootless` and everything it shells out to, except one file: setuid `/usr/bin/newuidmap`, which a Nix store binary can never be. Hence the `uidmap` apt package; without it the unit dies with `newuidmap: executable file not found in $PATH`. The daemon survives between SSH sessions via `enable-linger`, same as the ssh-agent. macOS uses Colima instead.
 
-What you get is intentionally narrower than the macOS setup: no Homebrew casks/GUI apps (there's no desktop environment to run them), and no macOS-only CLI tools (`thefuck`, `echidna`, `solc-select`, `foundry`, `tenderly`, `postgresql`, `libpq`, `colima` - see `tools.nix`'s `platform = "macos"` entries). Of the fast-moving `platform = "all"` tools (`claude-code`, `codex`, `cursor-agent`, `herdr`, `skills`, `pi-coding-agent`, `gnhf`, `opencode`, `treehouse`), `tool-selection.nix`'s `useNative` correctly identifies all nine as needing a non-Nix installer on Ubuntu (see "Package metadata" below), and all nine are wired up: each `tools.nix` entry carries either a `nativeInstallUrl` pointing at the tool's own non-interactive installer script (`claude-code`, `codex`, `cursor-agent`, `herdr`, `pi-coding-agent`, `treehouse`) or a `nativeInstallNpmPackage` for tools with no install script that fits this loop's `~/.local/bin` convention, just an npm package (`skills`, `gnhf`, `opencode`). `no-mistakes` is a tenth `platform = "all"`/`updatePolicy = "fast"` entry that goes through this same native-install path on Ubuntu too, but unlike the other nine it has no Homebrew fallback at all (`hasHomebrew = false` - see "About `no-mistakes`" below), so it also takes the native-install path on macOS, which is why this activation script is no longer Ubuntu-only. `home.nix`'s `installNativeTools` activation script runs each one on every `rebuild.sh` (skipping the ones already present under their real `~/.local/bin` launcher name - see `nativeInstallBinName` for the three whose launcher name differs from their `tools.nix` entry name), with `CODEX_NON_INTERACTIVE=1`, `NPM_CONFIG_PREFIX=$HOME/.local`, and `~/.local/bin` pre-created and pre-populated on `PATH` so none of them ever fall into an interactive prompt or a shell-rc-rewriting branch, and `~/.local/bin` on `home.sessionPath` so they're actually reachable afterward. `pkgs.nodejs` is included in `home.packages` on Linux because `skills`, `pi-coding-agent`, `gnhf`, and `opencode`'s launchers are npm-backed and shebang into `node` at runtime, not just during install. `NPM_CONFIG_PREFIX=$HOME/.local` is *also* set declaratively via `home.sessionVariables` (Linux only), so it reaches every interactive shell and not just the activation script: without it a plain `npm root -g` resolves to the read-only `/nix/store/...-nodejs-slim/lib/node_modules` rather than `~/.local/lib/node_modules` where the npm-backed tools actually live, and a plain `npm install -g` targets the Nix store. That broke `tests/pi-calm.test.sh`, which finds the Pi package via `$(npm root -g)` and silently skipped every sub-check. It supersedes the hand-written `~/.npmrc` (`prefix=${HOME}/.local`) that was previously needed as a workaround - that file is unmanaged, a fresh bootstrap never had it, and you can delete it. Both exports are needed and must stay in sync: the generated Home Manager `activate` script runs with its own curated environment and never sources `hm-session-vars.sh`, so `home.sessionVariables` is not in scope during activation. macOS is unaffected - it gets these tools from Homebrew, and the attribute is gated with `lib.optionalAttrs` so it is entirely absent from the darwin evaluation.
+### What Ubuntu does not get
+
+No Homebrew casks or GUI apps (no desktop environment to run them), and no `platform = "macos"` tools from `tools.nix`: `thefuck`, `echidna`, `solc-select`, `foundry`, `tenderly`, `postgresql`, `libpq`, `colima`.
+
+Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `installNativeTools` activation script installs each from its own `nativeInstallUrl` script or `nativeInstallNpmPackage`, skipping any already present in `~/.local/bin` (see `nativeInstallBinName` for tools whose launcher name differs from their entry name). It pre-creates and exports `~/.local/bin` and sets `CODEX_NON_INTERACTIVE=1` and `NPM_CONFIG_PREFIX=$HOME/.local`, so no installer prompts or rewrites a shell rc, and `home.sessionPath` keeps that directory reachable afterwards.
+
+`NPM_CONFIG_PREFIX` is *also* set via `home.sessionVariables` (Linux only), so interactive shells resolve `npm root -g` to `~/.local/lib/node_modules` rather than the read-only Nix store. Both must stay in sync: the generated activation script runs with its own environment and never sources `hm-session-vars.sh`. `pkgs.nodejs` is in `home.packages` on Linux because the npm-backed launchers shebang into `node` at runtime, not just during install. macOS is unaffected, and the attribute is gated with `lib.optionalAttrs` so it is absent from the darwin evaluation entirely.
 
 ## Make it yours
 
-This repo is mine.
-If you clone it, review these before you run `bootstrap.sh`:
+This repo is mine. Review these before you run `bootstrap.sh`:
 
-- **Username**: run `./bootstrap.sh` (it detects your username and offers to set it) OR change the single `user = "kunchen"` line in `flake.nix`.
-  Everything else (`configuration.nix`, `home.nix`, home directory paths) is threaded from that one variable.
-- **Host label**: change the single `hostLabel = "mac";` line in `flake.nix` (`rebuild.sh`/`bootstrap.sh` read it back out, so nothing else needs editing).
-- **CPU architecture**: on macOS, set `hostPlatform` in `configuration.nix` (see Prerequisites above); on Ubuntu, `bootstrap.sh` and `rebuild.sh` map `uname -m` to `x86_64-linux` or `aarch64-linux`.
+- **Username**: run `./bootstrap.sh` (it detects yours and offers to set it), or change the single `user = "kunchen"` line in `flake.nix`. Everything else threads from that variable.
+- **Host label**: change the single `hostLabel = "mac";` line in `flake.nix`.
+- **CPU architecture**: on macOS set `hostPlatform` in `configuration.nix`; on Ubuntu the scripts map `uname -m` for you.
 
 ### Setup profile
 
-Every machine picks one of two profiles, and both `bootstrap.sh` and `rebuild.sh` refuse to run until it has:
+Every machine picks one profile, and `bootstrap.sh` and `rebuild.sh` both refuse to run until it has. Set `DOTFILES_SETUP` in `.env` to one of:
 
-```sh
-cp .env.example .env
-```
+- `personal` - the full setup: `scope = "personal"` formulae and GUI casks on macOS (Slack, Discord, Notion, Figma, ...) on top of the shared dev tooling, plus the full TeX Live scheme.
+- `basic` - dev tooling only, the sensible choice on a server: no personal formulae or casks, minimal TeX Live (`pdflatex`/`xelatex`).
 
-Then set `DOTFILES_SETUP` in `.env` to one of:
+`.env` is gitignored, because "is this a personal machine" is a per-machine answer; a committed file would drag the choice onto every other machine on the next `git pull`.
 
-- `personal` - the full setup: `scope = "personal"` Homebrew formulae and GUI casks on macOS (Slack, Discord, Notion, Figma, ...) on top of the shared dev tooling, plus the full TeX Live scheme on every OS.
-- `basic` - dev tooling only, the sensible choice on a server: no personal formulae or casks, and the minimal TeX Live scheme (just `pdflatex`/`xelatex`).
+It is a flake output per profile rather than a value `flake.nix` reads, because Nix evaluates this repo as a git tree and an untracked file never reaches the store. So `flake.nix` builds both (`mac` and `mac-basic`, `<user>@<system>` and `<user>@<system>-basic`), and `setup-env.sh` turns `DOTFILES_SETUP` into the suffix or refuses. `tests/setup-env.test.sh` covers the refusals and that every suffix names a real output.
 
-`.env` is gitignored, because "is this a personal machine" is a per-machine answer - editing a committed file for it would drag the choice onto every other machine on the next `git pull`.
+To switch profiles, edit `.env` and run `./rebuild.sh`. Going `personal` -> `basic` on macOS removes the personal casks, because `homebrew.onActivation.cleanup = "zap"` uninstalls anything the config no longer declares.
 
-The mechanism is a flake output per profile rather than a value `flake.nix` reads: Nix evaluates this repo as a git tree, so an untracked file never reaches the store and `builtins.readFile ./.env` could not find it.
-So `flake.nix` builds both (`mac` and `mac-basic`; `<user>@<system>` and `<user>@<system>-basic`), and `setup-env.sh` - sourced by `bootstrap.sh` and `rebuild.sh` - turns `DOTFILES_SETUP` into the `-basic` suffix, or refuses if the value is missing or unknown.
-`tests/setup-env.test.sh` covers both halves: the refusals, and that every suffix it can return names a flake output that really is built with that `usePersonalSetup`.
+### Local and private files
 
-To switch a machine's profile, edit `.env` and run `./rebuild.sh`.
-Going `personal` -> `basic` on macOS removes the personal casks, because `homebrew.onActivation.cleanup = "zap"` uninstalls anything the config no longer declares (see the Homebrew warning above).
+**Private shell values:** copy `home/.config/zsh/private-env.zsh.example` to `home/.config/zsh/private-env.zsh` and fill in local-only values. The real file is gitignored. Setting `HETZNER_HOST` there, for example, enables the `hetzner` zsh alias without committing the host.
 
-**Private shell values:** copy `home/.config/zsh/private-env.zsh.example` to
-`home/.config/zsh/private-env.zsh` and fill in any local-only values you want
-the shell to use. The real file is ignored by Git. For example, setting
-`HETZNER_HOST` there enables the `hetzner` zsh alias as `ssh <user>@$HETZNER_HOST`
-without committing the host value to this public repo.
+**SSH config:** `~/.ssh/config` is never managed by home-manager. It stays local so Colima and other tools can rewrite it freely. Instead, `home.nix` symlinks two fragments into `~/.ssh/` and idempotently prepends `Include` lines for them on every rebuild, never duplicating them and never touching the rest of the file:
 
-**SSH config:** `~/.ssh/config` itself is never managed by home-manager - it
-stays local so Colima and other tools can rewrite it freely, and rebuild
-never overwrites or regenerates it. Instead, `home.nix` symlinks two
-dotfiles-owned fragments into `~/.ssh/` and idempotently prepends `Include`
-lines for them to `~/.ssh/config` on every rebuild (an activation script;
-safe to run repeatedly - it never duplicates the `Include` lines and never
-touches the rest of the file, so Colima's own appended entries survive):
+- `~/.ssh/dotfiles.config.public` - general defaults, from the committed per-platform `home/.ssh/dotfiles.config.public.darwin` or `.linux`.
+- `~/.ssh/dotfiles.config.private` - your real per-host entries. Copy `home/.ssh/dotfiles.config.private.example` to `home/.ssh/dotfiles.config.private`; the real file is gitignored.
 
-- `~/.ssh/dotfiles.config.public` - safe, general defaults (github.com and
-  `Host *` identity settings), symlinked from the committed, per-platform
-  `home/.ssh/dotfiles.config.public.darwin` or `.linux`.
-- `~/.ssh/dotfiles.config.private` - your real per-host entries
-  (hostnames/IPs, usernames, ports, identity files), symlinked from
-  `home/.ssh/dotfiles.config.private`. Copy
-  `home/.ssh/dotfiles.config.private.example` to
-  `home/.ssh/dotfiles.config.private` and fill it in; the real file is
-  ignored by Git.
+On a new machine the first switch creates `~/.ssh/config` and wires both `Include` lines automatically. If you used the older `home/.ssh/config.private`, copy its entries across by hand; it is not renamed for you.
 
-On a new machine, the first `home-manager switch` creates `~/.ssh/config` if
-missing and wires in both `Include` lines automatically - no manual paste.
-On a machine that already used this repo's older SSH setup, rebuild once to
-add the new `Include` lines. If you used the old
-`home/.ssh/config.private` file, copy its entries into
-`home/.ssh/dotfiles.config.private`; it is not renamed automatically.
+**Persistent ssh-agent (Linux only):** `home.nix` enables home-manager's `services.ssh-agent`, a `systemd --user` unit that starts on login with `SSH_AUTH_SOCK` wired into zsh. Note *zsh*: that module only injects the socket into shells home-manager manages, which is why `bootstrap.sh` changes your login shell. Systemd lingering keeps the agent and its cached keys alive after the SSH session closes, so with `AddKeysToAgent yes` a passphrase is entered once per boot. macOS gets this for free via launchd and the Keychain.
 
-**Persistent ssh-agent (Linux only):** `home.nix` enables home-manager's
-`services.ssh-agent` on Linux, which runs a `systemd --user` unit that starts
-on login with `SSH_AUTH_SOCK` wired into zsh automatically. Note *zsh*: that
-module only injects the socket into the shells home-manager manages, so the
-agent is invisible from a `bash` login shell - which is why `bootstrap.sh`
-makes zsh your login shell on Ubuntu. On headless Ubuntu,
-the config also enables systemd lingering so the user service, ssh-agent, and
-cached keys survive after the SSH session that ran `rebuild.sh` closes.
-Combined with `AddKeysToAgent yes` above, this means a key's passphrase only
-needs to be entered once per boot or agent restart, even on a minimal server
-with no desktop environment or gnome-keyring. macOS is untouched - it already
-gets a persistent agent for free via launchd and the Keychain (`UseKeychain`
-above).
-
-**Git identity:** this config deliberately does not set your git name or email.
-Git will stop your first commit and tell you to set them (`git config --global user.name "Your Name"` and `git config --global user.email you@example.com`).
-If you'd rather manage that declaratively, add this back to `home.nix` with your own identity:
+**Git identity:** deliberately not set here. Git will stop your first commit and tell you to set `user.name` and `user.email`. To manage it declaratively, add to `home.nix`:
 
 ```nix
 programs.git = {
@@ -209,55 +143,42 @@ programs.git = {
 };
 ```
 
-**Homebrew cleanup warning:** `configuration.nix` sets `homebrew.onActivation.cleanup = "zap"`.
-That means every time you switch on macOS, Homebrew removes any package or cask on your machine that isn't selected from `tools.nix` into `configuration.nix`'s `homebrew.brews` and `homebrew.casks`.
-If you already have Homebrew stuff installed that isn't in that list, the first switch will uninstall it.
-Read through the Homebrew-selected entries in `tools.nix` before you run `bootstrap.sh` or `rebuild.sh` for the first time, and add anything you want to keep.
+### Warnings
 
-**Existing Homebrew install:** `configuration.nix` sets `nix-homebrew.autoMigrate = true`, so if `/opt/homebrew` already has a non-Nix Homebrew install on it (common on a Mac you were already using), the first switch migrates it in place under nix-homebrew's management instead of erroring out. Your existing taps and packages are kept; the `zap` cleanup above still applies on top of that.
+**Homebrew cleanup:** `configuration.nix` sets `homebrew.onActivation.cleanup = "zap"`. Every macOS switch removes any package or cask not selected from `tools.nix`. If you already have Homebrew packages installed, the first switch uninstalls them. Read the Homebrew-selected entries in `tools.nix` and add anything you want to keep before your first run.
 
-**Existing dotfiles:** `flake.nix` sets `home-manager.backupFileExtension = "before-home-manager"`.
-On a Mac you were already using, files like `~/.zshrc`, `~/.zshenv`, or `~/.claude/settings.json` likely already exist.
-Without this setting, home-manager refuses to activate rather than clobber them.
-With it, the first switch moves each conflicting file to `<name>.before-home-manager` next to it and links in this repo's version instead - diff the two afterward if you want to carry anything over.
+**Existing Homebrew install:** `nix-homebrew.autoMigrate = true`, so an existing non-Nix `/opt/homebrew` is migrated in place rather than erroring out. Taps and packages are kept; the `zap` cleanup above still applies on top.
 
-**About `herdr`:** it's a `scope = "basic"` entry in `tools.nix`.
-It's a real public Homebrew formula (`brew info herdr` finds it in homebrew-core, no tap needed), so it will install fine on macOS.
-If you don't use it, remove its entry from `tools.nix` and the matching `installHerdrAgentIntegrations` activation block from `home.nix` in your copy.
-`herdr` has no built-in declarative way to enable its Claude/Codex/Pi agent integrations (`herdr integration --help` shows only an imperative `install <target>` subcommand), so `home.nix`'s `installHerdrAgentIntegrations` activation script runs `herdr integration install claude/codex/pi` on every rebuild, on both platforms - the install is idempotent (safe to re-run, exits 0 whether or not the target agent's own CLI is present) and each run is fault-isolated with a `WARNING:` so one failing target never blocks the others. It resolves `herdr` off an explicit PATH (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`) rather than assuming activation's curated PATH already has it - see the `loginctl` comment on `enableSshAgentLinger` for why. Its Pi hook lands inside `~/.pi/agent/extensions`, which is a tracked, symlinked directory in this repo, so the generated `herdr-agent-state.ts` is gitignored rather than committed - it's regenerated fresh every rebuild.
+**Existing dotfiles:** `home-manager.backupFileExtension = "before-home-manager"`, so files like `~/.zshrc` or `~/.claude/settings.json` are moved to `<name>.before-home-manager` instead of blocking activation. Diff them afterwards if you want to carry anything over.
 
-**About `cursor-agent`:** it's a `scope = "basic"` entry in `tools.nix`.
-Cursor's current CLI installs the `agent` command via `curl https://cursor.com/install -fsS | bash` on macOS, Linux, and WSL, with `~/.local/bin` on PATH afterward. The macOS path uses Homebrew's `cursor-cli` cask instead (`brewName = "cursor-cli"`, `isCask = true`), while Ubuntu uses that official installer through `nativeInstallUrl = "https://cursor.com/install"` and skips future rebuild installs by checking for `~/.local/bin/agent` (`nativeInstallBinName = "agent"`).
+**Agent policy:** `home/AGENTS.md` is my personal agent policy, installed for Claude, Codex, and opencode. Clone this repo and you silently inherit it. Edit or delete it if you don't want that.
 
-**About `gnhf`:** it's a `scope = "basic"` entry in `tools.nix`.
-It's a real public Homebrew formula (`brew info gnhf` finds it in homebrew-core, no tap needed) that depends on `node`, resolved by Homebrew itself on macOS; on Ubuntu it installs via its own npm package of the same name.
+**High-agency aliases:** `cc`, `co`, and `ag` in `home.nix` are `claude --dangerously-skip-permissions`, `codex -s workspace-write -a never`, and `cursor-agent --force --trust --approve-mcps --sandbox disabled`. Know what they do before you use them.
 
-**About `opencode`:** it's a `scope = "basic"` entry in `tools.nix`.
-It's a real public Homebrew formula (`brew info opencode` finds it in homebrew-core, no tap needed) that depends on `node` and `ripgrep`, resolved by Homebrew itself on macOS. It does have an official non-interactive `install.sh` (`curl -fsSL https://opencode.ai/install | bash`), but that script hardcodes its install location to `$HOME/.opencode/bin` with no env var to redirect it, unlike `claude-code`/`codex`/`cursor-agent`/`herdr`/`pi-coding-agent`'s installers which respect (or default to) `~/.local/bin` - so it doesn't fit `nativeInstallUrl`'s "already installed" skip-check or `home.sessionPath` without extra plumbing. Its npm package (`opencode-ai`, bin: `opencode`) lands in `~/.local/bin` the same way `skills`/`gnhf` do, so Ubuntu uses `nativeInstallNpmPackage` instead.
-If you don't use it, just remove its entry from `tools.nix` in your copy.
+### Package metadata
 
-**About `no-mistakes`:** it's a `scope = "basic"` entry in `tools.nix`.
-Unlike the other fast-moving `platform = "all"` tools above, it has no Homebrew formula or tap at all (`brew info no-mistakes` finds nothing, and the `kunchenguid/homebrew-no-mistakes` tap doesn't exist) and no npm package either - its only fresh-machine install path is its own `install.sh`. It sets `hasHomebrew = false`, which tells `tool-selection.nix`'s `useHomebrew`/`useNative` to route it through the native installer on both macOS and Ubuntu instead of putting a nonexistent formula in `homebrew.brews`. That's also why `home.nix`'s `installNativeTools` activation script is no longer Ubuntu-only: it now runs on both platforms, and on macOS it only ever has `no-mistakes` to install since every other fast/all tool there still resolves through Homebrew.
-If you don't use it, just remove its entry from `tools.nix` in your copy.
+`tools.nix` is the single source of truth for every CLI tool and GUI app. Each entry answers:
 
-**About `treehouse`:** it's a `scope = "basic"` entry in `tools.nix` (a pool manager for reusable git worktrees/Jujutsu workspaces, from the same author as `no-mistakes`).
-It is *not* in nixpkgs (`builtins.hasAttr "treehouse"` against this flake's own `nixpkgs` input is `false`, so a plain `nixName`/`updatePolicy = "stable"` entry would not evaluate), and the npm package called `treehouse` is an unrelated React state-management library, not this tool - so `nativeInstallNpmPackage` is out too. What it does have is a real public Homebrew formula (`brew info treehouse` finds `treehouse` in homebrew-core - "Manage worktrees without managing worktrees", homepage `github.com/kunchenguid/treehouse`, a Go build - no tap needed), so unlike `no-mistakes` it keeps the default `hasHomebrew = true` and stays Homebrew-managed on macOS like every other fast/`all` tool. On Ubuntu it uses `nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"`: that script downloads the release tarball for the detected OS/arch and moves a single `treehouse` binary into `~/.local/bin` whenever that directory is on `$PATH` (which `installNativeTools` exports before running it), and it never writes to a shell rc file - the same shape as `claude-code`/`herdr`, and exactly what `opencode`'s hardcoded `$HOME/.opencode/bin` installer failed. Its launcher name matches its entry name, so no `nativeInstallBinName` is needed. Upstream also publishes a `flake.nix` (`nix run github:kunchenguid/treehouse`), but using it would mean adding this repo's first third-party flake input - new machinery for one tool - so the existing Homebrew + `install.sh` paths are used instead.
-The one wrinkle its installer forced: it decides between `~/.local/bin` and a `sudo`-requiring `/usr/local/bin` with a `[ -w "$INSTALL_DIR" ]` test *before* it `mkdir -p`s, so `installNativeTools` now creates `~/.local/bin` itself rather than depending on an earlier tool in the loop having created it as a side effect.
-If you don't use it, just remove its entry from `tools.nix` in your copy.
+| Property       | Question                                          | Values                     |
+| -------------- | ------------------------------------------------- | -------------------------- |
+| `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal`       |
+| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu` |
+| `updatePolicy` | Do I want the latest upstream version quickly?    | `stable` / `fast`          |
+| `isCask`       | If installed through Homebrew, is it a cask?      | `true` / omitted           |
+| `hasHomebrew`  | Does this tool have a real Homebrew formula/cask? | `true` (default) / `false` |
 
-**Package metadata:** `tools.nix` is the single source of truth for every CLI tool and GUI app. Each entry answers these questions:
+Optional overrides, used only where a tool needs them:
 
-| Property       | Question                                        | Values                       |
-| -------------- | ------------------------------------------------ | ----------------------------- |
-| `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal`          |
-| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu`    |
-| `updatePolicy` | Do I want the latest upstream version quickly?    | `stable` / `fast`             |
-| `isCask`       | If installed through Homebrew, is it a cask?      | `true` / omitted              |
-| `hasHomebrew`  | Does this tool have a real Homebrew formula/cask? | `true` (default) / `false`    |
+| Field                     | Purpose                                                    |
+| ------------------------- | ---------------------------------------------------------- |
+| `brewName` / `nixName`    | Package name differs from the entry `name`                 |
+| `nativeInstallUrl`        | Non-interactive installer script for a `useNative` tool    |
+| `nativeInstallNpmPackage` | Same idea, for a tool distributed only as an npm package   |
+| `nativeInstallBinName`    | Launcher name the "already installed" skip-check looks for |
 
-(`brewName`/`nixName` are optional overrides for when the Homebrew or nixpkgs name differs from the tool's `name`. `nativeInstallUrl` is an optional URL to a non-interactive, PATH-side-effect-free installer script for a `useNative` tool - see below and `home.nix`'s `installNativeTools` activation script; `claude-code`, `codex`, `cursor-agent`, `herdr`, `pi-coding-agent`, `no-mistakes`, and `treehouse` set it. `nativeInstallNpmPackage` is the same idea for a tool with no install script that fits the `~/.local/bin` convention - `skills`, `gnhf`, and `opencode` set it. `nativeInstallBinName` overrides the `~/.local/bin` launcher name the installer's "already installed" skip-check looks for, for the rare tool (`claude-code` -> `claude`, `cursor-agent` -> `agent`, `pi-coding-agent` -> `pi`) whose upstream launcher name differs from its `tools.nix` entry name; it defaults to `name`. `hasHomebrew` defaults to `true` for every entry; `no-mistakes` is the only one that sets it `false`, since it has no Homebrew formula or tap at all (`treehouse`, from the same author and also installed from its own `install.sh` on Ubuntu, keeps the default because it *does* have a homebrew-core formula - see "About `treehouse`" above) - that's what keeps a `platform = "all"`/`updatePolicy = "fast"` tool out of `homebrew.brews`/`homebrew.casks` on macOS and routes it through the native installer there too, instead of the Homebrew-always assumption every other fast/all tool relies on (see "About `no-mistakes`" above). `platform = "ubuntu"` is used by the `gcc`/`gnumake`/`pkg-config` build-toolchain entries, needed so nvim-treesitter can compile parsers on Ubuntu - macOS gets the same via Xcode Command Line Tools instead.)
+Why a given tool is wired the way it is - no Homebrew formula, a hardcoded install path, a colliding npm name - is commented on its own `tools.nix` entry. If you don't use one, delete its entry; for `herdr`, also delete the `installHerdrAgentIntegrations` block in `home.nix`.
 
-`tool-selection.nix` turns that table into concrete selections in two stages. `configuration.nix` consumes those selections for macOS `environment.systemPackages`, `homebrew.brews`, and `homebrew.casks`; `home.nix` consumes them for both platforms' `home.packages` and, for the `nativeInstallTools` subset, an activation script (no longer Ubuntu-only - see "About `no-mistakes`" above) that runs each one's `nativeInstallUrl` script (or `npm install -g` for `nativeInstallNpmPackage`) directly. First, whether the tool exists on this machine at all:
+`tool-selection.nix` turns that table into concrete selections in two stages, shared by `configuration.nix` (macOS) and `home.nix` (both platforms). First, whether the tool exists on this machine at all:
 
 ```text
 scope:
@@ -276,90 +197,81 @@ Only then is the installer picked, based on `currentPlatform`:
 macOS:
   stable + all              -> Nix
   fast + all + hasHomebrew  -> Homebrew
-  fast + all + !hasHomebrew -> native installer (only wired up if nativeInstallUrl or nativeInstallNpmPackage is set)
+  fast + all + !hasHomebrew -> native installer
   macos-only                -> Homebrew
 
 Ubuntu:
   stable + all     -> Nix
-  fast + all       -> native installer (only wired up if nativeInstallUrl or nativeInstallNpmPackage is set - see "Ubuntu setup")
+  fast + all       -> native installer
   stable + ubuntu  -> Nix
-  fast + ubuntu    -> native installer (only wired up if nativeInstallUrl or nativeInstallNpmPackage is set)
+  fast + ubuntu    -> native installer
 ```
 
-`currentPlatform` isn't one global constant: `configuration.nix` hardcodes it to `"macos"` (there's only one macOS target), while each Ubuntu `homeConfigurations."<user>@<system>"` output in `home.nix` derives it from `pkgs.stdenv.isDarwin`, so it's correct per-output rather than a single file-level toggle that would only ever be right for one platform at a time.
+A native installer only actually runs for tools that set `nativeInstallUrl` or `nativeInstallNpmPackage`.
 
-The invariant that keeps the macOS and Ubuntu paths aligned: installer selection always depends on `currentPlatform`, not on a tool's fields alone. A `platform=all; updatePolicy=fast; hasHomebrew=true` (the default) tool is Homebrew-managed only because `currentPlatform == "macos"` - on Ubuntu that same tool goes through `useNative` (a native installer) instead. A `platform=ubuntu` tool can never enter the Homebrew lists while `currentPlatform == "macos"`. The one exception is `hasHomebrew = false`: a tool with no real Homebrew formula (`no-mistakes`) goes through `useNative` on macOS too, since `useHomebrew` refuses to claim it there - see "About `no-mistakes`" above. `isCask` only decides `homebrew.casks` vs `homebrew.brews` for a tool the platform stage already selected for Homebrew - it plays no role in which installer is chosen. See `isEnabled`/`isForCurrentPlatform`/`useNix`/`useHomebrew`/`useNative`/`hasHomebrew` in `tool-selection.nix` (shared by `configuration.nix` and `home.nix`) for the exact predicates.
+The invariant that keeps the two paths aligned: installer selection depends on `currentPlatform`, never on a tool's fields alone. The same `platform=all; updatePolicy=fast` tool is Homebrew-managed on macOS and natively installed on Ubuntu. `hasHomebrew = false` is the one exception, routing a tool with no formula through the native installer on macOS too. `isCask` only picks `homebrew.casks` over `homebrew.brews` for a tool already selected for Homebrew.
 
-One toggle controls both scopes: `usePersonalSetup`. It isn't edited in `flake.nix` - it comes from this machine's `.env` (see "Setup profile" above), so a second, non-personal machine (e.g. a server) gets dev tooling only without a repo edit that would follow you onto every other machine.
-
-**Heads-up:**
-
-- `home/AGENTS.md` is my personal agent policy, and `home.nix` installs it for Claude, Codex, and opencode.
-  If you clone this repo, you'd silently inherit my agent instructions - edit or delete `home/AGENTS.md` if you don't want that.
-- The `cc`, `co`, and `ag` shell aliases in `home.nix` are high-agency shortcuts: `claude --dangerously-skip-permissions`, `codex -s workspace-write -a never`, and `cursor-agent --force --trust --approve-mcps --sandbox disabled`.
-  They're convenient for me, but know what they do before you use them.
+`currentPlatform` is not a global constant: `configuration.nix` hardcodes `"macos"`, while each Ubuntu `homeConfigurations."<user>@<system>"` output derives it from `pkgs.stdenv.isDarwin`. The scope toggle, `usePersonalSetup`, comes from `.env` rather than a repo edit that would follow you onto every machine.
 
 ## Repo tour
 
-- `flake.nix` - the entry point.
-  Wires up nixpkgs, nix-darwin, home-manager, and nix-homebrew for the macOS `darwinConfigurations.mac` output, and nixpkgs + home-manager (standalone, no nix-darwin) for the Linux `homeConfigurations."<user>@<system>"` outputs; `usePersonalSetup` selects the brews/casks/Nix-package profile on both, and every output is built twice - once per setup profile, the `-basic` suffixed copy being `usePersonalSetup = false` (see "Setup profile" above).
-- `.env.example` / `setup-env.sh` - the per-machine setup profile: copy the example to the gitignored `.env`, and `setup-env.sh` (sourced by `bootstrap.sh` and `rebuild.sh`) turns `DOTFILES_SETUP` into the flake output suffix, or refuses to let either script run.
-- `configuration.nix` - macOS-only system-level config: system defaults, Homebrew, and macOS package selection (see "Package metadata" above).
-- `tools.nix` - the per-tool metadata table every platform selects packages from.
-- `tool-selection.nix` - the shared `isEnabled`/`isForCurrentPlatform`/`useNix`/`useHomebrew`/`useNative` predicates and selected output lists that turn `tools.nix` into concrete installers for one `currentPlatform`; used by both `configuration.nix` (macOS) and `home.nix` (Ubuntu).
-- `home.nix` - user-level config: shell, packages, prompt, and the symlinks described below. Shared between macOS and Ubuntu; platform-specific bits (home directory, Nix-managed package list, a couple of aliases) branch on `pkgs.stdenv.isDarwin`.
-- `rebuild.sh` - re-applies the config after the first switch (macOS or Ubuntu).
-  Run this every time you make a change.
-- `home/` - the actual config files that get symlinked into place; the sections below explain the shared symlink model and Pi's narrower selective setup.
-- `agent-capabilities.toml` / `agent-capabilities.sh` - declares and checks/syncs agent skills, Claude Code plugins, and Pi extras (see "Agent capabilities" below).
+- `flake.nix` - the entry point. Wires nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`, and nixpkgs + standalone home-manager for the Linux `homeConfigurations."<user>@<system>"` outputs. Every output is built twice, once per setup profile.
+- `.env.example` / `setup-env.sh` - the per-machine setup profile and the suffix it maps to.
+- `configuration.nix` - macOS system-level config: system defaults, Homebrew, macOS package selection.
+- `tools.nix` - the per-tool metadata table.
+- `tool-selection.nix` - the shared predicates that turn `tools.nix` into concrete installers for one `currentPlatform`.
+- `home.nix` - user-level config for both platforms: shell, packages, prompt, symlinks. Platform-specific bits branch on `pkgs.stdenv.isDarwin`.
+- `rebuild.sh` - re-applies the config after the first switch.
+- `home/` - the actual config files that get symlinked into place.
+- `agent-capabilities.toml` / `agent-capabilities.sh` - declares and syncs agent skills, plugins, and Pi extras.
 
 ## How the symlinks work
 
-The files under `home/` are the real files - editing them here is editing your live config, no rebuild needed to see the change in your editor.
-`home.nix` uses `mkOutOfStoreSymlink` to point paths like `~/.config/nvim` straight at `home/.config/nvim` in this repo, so the two never drift out of sync.
-You only run `./rebuild.sh` when you change something that isn't just a symlinked file, like a package list or a system default.
+The files under `home/` are the real files: editing them here is editing your live config, no rebuild needed.
+`home.nix` uses `mkOutOfStoreSymlink` to point paths like `~/.config/nvim` straight at this repo, so the two never drift.
+Run `./rebuild.sh` only when you change something that isn't a symlinked file, like a package list or a system default.
 
 ## Optional Pi configuration
 
-Pi is an opt-in CLI, not a dependency this repository vendors. The CLI itself is selected through `tools.nix` like the other managed tools; see "Package metadata" for how macOS and Ubuntu choose its installer. If you adapt only this Pi config without the package metadata, install Pi from its owner with the [official Pi instructions](https://pi.dev).
-
-[Pi Launcher](https://github.com/kunchenguid/homebrew-tap) is also optional and installed from its owner, not declared by this config:
+Pi is an opt-in CLI, not a dependency this repository vendors. The CLI is selected through `tools.nix` like everything else; install it from its owner with the [official Pi instructions](https://pi.dev) if you adapt only this config. [Pi Launcher](https://github.com/kunchenguid/homebrew-tap) is also optional and installed separately:
 
 ```sh
 brew install --cask kunchenguid/tap/pi-launcher
 ```
 
-Home Manager owns exactly two repository-authored Pi directories: `~/.pi/agent/themes` and `~/.pi/agent/extensions`. It also links `models.json` and `settings.json` as individual files. The local extension directory is for public, repository-authored extensions only - third-party package code never belongs there. Run `/reload` after editing a local extension or other Pi resources. The terminal-title extension shows a spinner while Pi is working, then a completion mark with the session name or current directory. The `rose-pine-moon` theme was authored clean-room from the public [Rosé Pine Moon palette](https://rosepinetheme.com/palette) and Pi's [public theme schema](https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json), not from a private or live theme file.
+Home Manager owns exactly two Pi directories, `~/.pi/agent/themes` and `~/.pi/agent/extensions`, plus `models.json` and `settings.json` as individual files. The extensions directory is for public, repository-authored extensions only; third-party package code never belongs there. Run `/reload` after editing one. The `rose-pine-moon` theme was authored clean-room from the public [Rosé Pine Moon palette](https://rosepinetheme.com/palette) and Pi's public theme schema.
+
+Home Manager deliberately does not manage `~/.pi/agent` itself, or Pi authentication, sessions, trust decisions, caches, or package trees. The model overrides carry no credentials, choose no default model, and only take effect once you authenticate Pi yourself.
 
 ### Pi Calm
 
-`home/.pi/agent/extensions/calm` is a standalone local Pi extension. Home Manager's existing global extensions-directory link makes Pi auto-load it without another declaration. `/calm` toggles a conversation-only presentation mode and is off by default. Its choice is stored locally in `~/.pi/agent/calm` (or the directory selected by `PI_CODING_AGENT_DIR`), not in this repository or Home Manager. Adapted from Firstmate under the bundled MIT license, Calm imports no Firstmate modules and has no Firstmate runtime dependency.
+`home/.pi/agent/extensions/calm` is a standalone local extension, auto-loaded through the existing extensions-directory link. `/calm` toggles a conversation-only presentation mode, off by default, stored in `~/.pi/agent/calm` rather than in this repository. Adapted from Firstmate under the bundled MIT license, with no imports of or runtime dependency on it.
 
-When enabled, Calm hides collapsed thinking and the call/result shells for Pi's seven built-in tools (`read`, `bash`, `edit`, `write`, `grep`, `find`, and `ls`) without leaving blank transcript rows. During an active run it replaces Pi's working row with a two-line animated blue-water, yellow-boat widget. `/calm` restores Pi's stock rendering and preserves the existing Ctrl+O tool-expansion choice.
+When enabled, Calm hides collapsed thinking and the call/result shells for Pi's seven built-in tools without leaving blank transcript rows, and replaces the working row with a two-line animated widget. `/calm` restores stock rendering and preserves your Ctrl+O tool-expansion choice.
 
-Calm never changes prompts, tool execution, model context, session data, or ordering. `/share` and `/export` use the complete stock transcript. Generic custom tools, images, and unsupported Pi transcript classes deliberately remain visible because Pi has no safe general-purpose transcript filter. If a future Pi release no longer exports the exact collapsed-thinking rendering seam, Calm logs one diagnostic and leaves only that adapter disabled; all other behavior remains available.
+Calm never changes prompts, tool execution, model context, session data, or ordering; `/share` and `/export` use the complete stock transcript. Custom tools, images, and unsupported transcript classes stay visible, because Pi has no safe general-purpose transcript filter. If a future Pi release drops the rendering seam it hooks, Calm logs one diagnostic and disables only that adapter.
 
-Pi's package system declares two third-party sources in the linked global `settings.json`:
+### Pinned third-party Pi packages
 
-- `npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6` - the exact public npm release from `ryan_nookpi`.
-- `git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055` - the exact public `algal` commit for experimental OpenAI server-side compaction.
+`settings.json` declares two, both as immutable pins so Pi never moves them during package updates:
 
-The version and commit are immutable pins, so Pi does not move them during package updates. Deliberate updates require a new source and security audit, followed by an explicit pin change in `home/.pi/agent/settings.json`. On Pi 0.82.0, global settings declarations install missing pinned packages automatically at startup. No one-time install command is required. Pi keeps the downloaded npm and git package trees in its own unmanaged `~/.pi/agent/npm` and `~/.pi/agent/git` runtime directories, outside Home Manager and Git tracking.
+- `npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6`
+- `git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055`
 
-Both packages execute with your full user permissions and must be trusted like any other executable code. The compaction package is experimental, sends the relevant OpenAI compaction and continuity data to OpenAI, and upstream declares the stale peer range `>=0.80.9 <0.81.0`; this exact immutable ref was locally proven to load and perform remote compaction on Pi 0.82.0. Do not treat that proof as a guarantee for a different Pi version or a different package ref.
+**Both execute with your full user permissions and must be trusted like any other executable code.** The compaction package is experimental, sends the relevant OpenAI compaction and continuity data to OpenAI, and upstream declares the stale peer range `>=0.80.9 <0.81.0`; this exact ref was locally proven to load and perform remote compaction on Pi 0.82.0, which is not a guarantee for any other Pi version or package ref. Updating either one requires a new source, a security audit, and an explicit pin change in `home/.pi/agent/settings.json`.
 
-Home Manager deliberately does not manage `~/.pi/agent` itself, or Pi authentication, sessions, trust decisions, caches, npm/git package trees, or any other runtime state. The model overrides contain no credentials or endpoint settings, do not choose a default model, and only take effect after you authenticate Pi yourself. This remains an additive post-video layer: it does not vendor Pi, a launcher, or package source code into this repository.
+On Pi 0.82.0 these install automatically at startup; no one-time command is needed. Pi keeps the downloaded trees in its own unmanaged `~/.pi/agent/npm` and `~/.pi/agent/git` directories.
 
 ## Agent capabilities (skills, plugins, Pi extras)
 
-`agent-capabilities.toml` is the one repo-tracked source of truth for the skills, Claude Code plugins, and repo-authored Pi extras this setup expects across Codex, Claude Code, Pi, and opencode. It declares desired state only - it does not hand-roll a package manager, and it never touches runtime/cache/plugin internals (`~/.codex/skills/.system`, `~/.codex/plugins/cache`, `~/.claude/plugins/cache`). Instead it drives each ecosystem's own supported mechanism:
+`agent-capabilities.toml` is the repo-tracked source of truth for the skills, Claude Code plugins, and repo-authored Pi extras this setup expects across Codex, Claude Code, Pi, and opencode. It declares desired state only: no hand-rolled package manager, and it never touches runtime, cache, or plugin internals. It drives each ecosystem's own mechanism:
 
-- **Skills** (`kind = "skill"`) install through the [`skills` CLI](https://skills.sh) (`skills add <owner>/<repo> -g --agent ...`), the same tool already declared in `tools.nix`. `source = "owner/repo"` is a `skills`-compatible package spec; `source = "local"` marks a skill with no reproducible remote source (hand-authored, or installed with `skills init`) - these are declared for visibility but sync always reports `manual-action-required` for them rather than guessing a source.
-- **Claude Code plugins** (`kind = "plugin"`) install through `claude plugin marketplace add <source>` followed by `claude plugin install <id>`, where `id` is the plugin's `<name>@<marketplace>` identifier. Codex plugins use the equivalent `codex plugin` commands, but nothing is currently seeded there - this machine's only Codex marketplaces are OpenAI's own bundled ones, with no user-added marketplace to declare.
-- **Pi extras** (`kind = "pi-extension"` / `"pi-theme"`) are represented for visibility only. They stay owned by Home Manager, which already symlinks `home/.pi/agent/{extensions,themes}` whole (see "Optional Pi configuration" above); sync always no-ops for these and points you at `./rebuild.sh`.
-- **opencode** natively discovers skills from `~/.claude/skills` and `~/.agents/skills` as "global compatibility" sources, and has no plugin marketplace of its own - so an opencode target for a skill is satisfied once its Codex or Claude Code copy is in place, with no separate sync step. opencode isn't installed on this machine, so nothing beyond that compatibility note is wired up for it.
+- **Skills** (`kind = "skill"`) install through the [`skills` CLI](https://skills.sh). `source = "owner/repo"` is a package spec; `source = "local"` marks a skill with no reproducible remote source, declared for visibility but always reported as `manual-action-required`.
+- **Claude Code plugins** (`kind = "plugin"`) install through `claude plugin marketplace add` then `claude plugin install <name>@<marketplace>`. Codex has equivalent commands but nothing seeded.
+- **Pi extras** (`kind = "pi-extension"` / `"pi-theme"`) are listed for visibility only; Home Manager owns them, so sync no-ops and points at `./rebuild.sh`.
+- **opencode** discovers skills from `~/.claude/skills` and `~/.agents/skills` and has no plugin marketplace, so an opencode target is satisfied once the Codex or Claude Code copy is in place.
 
-Manifest fields: `name`, `kind` (`skill` | `plugin` | `pi-extension` | `pi-theme`), `source`, optional `path` (defaults to `"."`, only meaningful for `pi-extension`/`pi-theme`), `targets` (subset of `codex`/`claude`/`opencode`/`pi`), and `id` (plugin only).
+Manifest fields: `name`, `kind`, `source`, optional `path` (defaults to `"."`, only for Pi extras), `targets` (subset of `codex`/`claude`/`opencode`/`pi`), and `id` (plugin only).
 
 ```sh
 ./agent-capabilities.sh check              # honest drift report (read-only)
@@ -369,32 +281,17 @@ Manifest fields: `name`, `kind` (`skill` | `plugin` | `pi-extension` | `pi-theme
 ./agent-capabilities.sh sync --force       # overwrite local edits / adopt pre-existing directories
 ```
 
-`check` reports, per target and kind: installed, declared-but-missing, installed-but-undeclared, stale lock entries (present in `~/.agents/.skill-lock.json` but no longer on disk), and manual-action-required. `sync` is safe to rerun: a skill directory that already exists but was never synced by this tool, or one whose content has changed since the last sync, is left alone and reported rather than overwritten, unless you pass `--force`.
+`check` reports, per target and kind: installed, declared-but-missing, installed-but-undeclared, stale lock entries, and manual-action-required. `sync` is safe to rerun: a directory that already exists but was never synced by this tool, or whose content changed since, is reported rather than overwritten unless you pass `--force`.
 
-**To add a new skill:** find its `owner/repo` on [skills.sh](https://skills.sh) (or note `source = "local"` if it has none), add a `[[capability]]` entry with `kind = "skill"` and the agents it should reach in `targets`, then run `./agent-capabilities.sh sync`.
-**To add a new Claude Code plugin:** find its marketplace repo and `<name>@<marketplace>` id (`claude plugin list` after installing it once shows both), add a `[[capability]]` entry with `kind = "plugin"`, `source`, and `id`, then run `./agent-capabilities.sh sync`.
-**To sync on a new machine:** after `./rebuild.sh`, run `./agent-capabilities.sh sync`.
-**To check drift:** run `./agent-capabilities.sh check` any time.
-**What stays manual:** anything `source = "local"`, any plugin CLI or skill target this script has no mechanism for, and any conflict it refuses to overwrite - all show up as `manual-action-required` or a `skip:` line explaining why.
+To add a skill or plugin, add a `[[capability]]` entry and run `./agent-capabilities.sh sync`. On a new machine, run it after `./rebuild.sh`.
 
 ## Notes
 
-The first time you launch `nvim`, it bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub.
-That needs network access once; after that it's offline.
-Neovim and WezTerm both use the rose-pine moon theme.
-Neovim keeps italics off and uses a transparent background on macOS, Windows, and WSL so it matches the terminal setup.
+The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub. That needs network once; after that it is offline. Neovim keeps italics off and uses a transparent background so it matches the terminal.
 
-Python files get `basedpyright` (types, completion, navigation) and `ruff` (linting, code actions, formatting), configured in `home/.config/nvim/lua/plugins/lsp.lua`.
-Both servers are installed by `mason`, not Nix, on first non-headless launch - `mason-lspconfig` skips `ensure_installed` when Neovim is headless, so `:Mason` is where you watch it happen or retry.
-Nix files get `nixd`, enabled in the same file but installed by `tools.nix` rather than mason - mason's registry has no `nixd`, and its only other Nix server (`nil`) is a cargo package that would need a Rust toolchain on every machine to build from source.
-So `nixd` needs a `./rebuild.sh` rather than a `:Mason` run to appear.
-Ubuntu additionally gets Nix's `python3`, because mason installs basedpyright from PyPI into a venv and Ubuntu's system interpreter ships without `ensurepip`.
-macOS is left alone here - its Xcode Command Line Tools `python3` already does this, the same arrangement as the `gcc`/`gnumake`/`pkg-config` entries, and a Nix `python3` would shadow the system one in PATH rather than sit beside it.
+Python gets `basedpyright` and `ruff`, installed by `mason` on first non-headless launch, so `:Mason` is where you watch or retry. Nix gets `nixd`, installed by `tools.nix` instead: mason's registry has no `nixd`, and its only other Nix server (`nil`) is a cargo package needing a Rust toolchain everywhere. So `nixd` needs a `./rebuild.sh`, not a `:Mason` run. Ubuntu also gets Nix's `python3`, because mason installs basedpyright into a venv and Ubuntu's system interpreter ships without `ensurepip`; macOS already has a working one from the Xcode Command Line Tools, and a Nix `python3` would shadow it. All configured in `home/.config/nvim/lua/plugins/lsp.lua`.
 
-[conform.nvim](https://github.com/stevearc/conform.nvim) formats on demand, never on save: `<leader>F` formats the buffer, using `ruff_format` for python and the `prettier` that `tools.nix` installs for markdown, yaml, json, html, and css (`home/.config/nvim/lua/plugins/format.lua`).
-Formatting rewrites the whole buffer, so doing it on save would turn a one-line fix in a never-formatted project into a few hundred lines of churn - and `<Esc>` is mapped to `:w`, so it would fire constantly.
-Each formatter reads the edited project's own config (`.prettierrc`, `.editorconfig`, `pyproject.toml`); there is no house style imposed from here.
-lua and nix are deliberately unmapped - `stylua` and `nixfmt` disagree with this repo's own hand-formatting wholesale.
+[conform.nvim](https://github.com/stevearc/conform.nvim) formats on demand, never on save: `<leader>F` formats the buffer with `ruff_format` for python and `prettier` for markdown, yaml, json, html, and css. Formatting rewrites the whole buffer, so on-save would turn a one-line fix in a never-formatted project into hundreds of lines of churn, and `<Esc>` is mapped to `:w` so it would fire constantly. Each formatter reads the edited project's own config; no house style is imposed from here. lua and nix are deliberately unmapped, since `stylua` and `nixfmt` disagree with this repo's hand-formatting wholesale.
 
 ## License
 
