@@ -82,7 +82,11 @@ FLAKE_USER=thomasharper
 # the Nix language server nvim attaches to .nix buffers: like prettier and uv
 # above, a Nix package addition lands in environment.systemPackages on macOS
 # too, so the darwin derivation legitimately changes.
-EXPECTED_DARWIN_DRVPATH="/nix/store/7djb6z8q837hmpjqc3gy80ci4gqdf2s7-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding foundry (forge/cast/anvil/chisel) to tools.nix as a
+# macOS-only personal tool: it lands in homebrew.brews, so the darwin
+# derivation legitimately changes. Ubuntu is untouched - platform = "macos"
+# keeps it out of every Linux list.
+EXPECTED_DARWIN_DRVPATH="/nix/store/armpccyhq6w4vj7n6bpis89zg8ix1408-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
