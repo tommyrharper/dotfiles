@@ -1,10 +1,9 @@
-# herdr runtime artifacts (regenerated at runtime; never commit)
-home/.config/herdr/*.log
-home/.config/herdr/session.json
-home/.config/herdr/*.sock
-home/.config/herdr/plugins.json
-home/.config/herdr/.plugins.lock
-home/.config/herdr/release-notes.json
+# herdr runtime artifacts (regenerated at runtime; never commit). ~/.config/herdr
+# is an out-of-store symlink into this repo (home.nix), so herdr writes its logs,
+# sockets, and session state straight into the working tree - including per-session
+# subdirectories under sessions/. config.toml is the only file we own here.
+home/.config/herdr/*
+!home/.config/herdr/config.toml
 
 # macOS + nix build noise
 .DS_Store
