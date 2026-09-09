@@ -90,7 +90,11 @@ FLAKE_USER=thomasharper
 # hasHomebrew = false): like no-mistakes it has no Homebrew formula, so it
 # joins installNativeTools on macOS as well as Ubuntu, adding a `uv tool
 # install specify-cli` block to the shared activation script.
-EXPECTED_DARWIN_DRVPATH="/nix/store/c7dv86ifhq3s6prcglhg0km976nfgrnb-darwin-system-26.05.adda04f.drv"
+# Re-pin again after flipping foundry to platform = "all": nixpkgs ships
+# forge/cast/anvil/chisel for macOS as well as Linux, so it leaves
+# homebrew.brews for environment.systemPackages on macOS (and joins
+# home.packages on Ubuntu).
+EXPECTED_DARWIN_DRVPATH="/nix/store/zj70r6z8aamwxgbnz35nv094fm043h3m-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
