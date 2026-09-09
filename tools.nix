@@ -101,6 +101,9 @@
   { name = "lcov"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   # nixpkgs ships this under the "libusb1" attribute.
   { name = "libusb"; scope = "personal"; platform = "all"; updatePolicy = "stable"; nixName = "libusb1"; }
+  # One derivation, four binaries: forge, cast, anvil, chisel. nixpkgs ships it
+  # for macOS and Linux alike, so Nix owns it on both instead of Homebrew.
+  { name = "foundry"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
 
   # Ubuntu-only build toolchain: nvim-treesitter (main) shells out to `cc`,
   # `make`, and `pkg-config` to compile parsers from source. macOS already
@@ -120,8 +123,6 @@
   { name = "thefuck"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "echidna"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "solc-select"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
-  # One formula, four binaries: forge, cast, anvil, chisel.
-  { name = "foundry"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "tenderly"; scope = "personal"; platform = "macos"; updatePolicy = "fast"; brewName = "tenderly/tenderly/tenderly"; }
   { name = "postgresql"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; brewName = "postgresql@15"; }
   { name = "libpq"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }

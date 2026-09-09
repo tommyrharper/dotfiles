@@ -123,13 +123,13 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `ffmpeg` | Media transcoding | Both |
 | `lcov` | Coverage reports | Both |
 | `libusb` | USB library | Both |
+| `forge` (foundry) | Build, test and deploy Solidity projects | Both |
+| `cast` (foundry) | Chain RPC calls, ABI/unit conversion, tx inspection | Both |
+| `anvil` (foundry) | Local Ethereum dev node | Both |
+| `chisel` (foundry) | Solidity REPL | Both |
 | `fuck` (thefuck) | Correct the previous command | macOS only |
 | `echidna` | Solidity fuzzer | macOS only |
 | `solc-select` | Switch Solidity compiler versions | macOS only |
-| `forge` (foundry) | Build, test and deploy Solidity projects | macOS only |
-| `cast` (foundry) | Chain RPC calls, ABI/unit conversion, tx inspection | macOS only |
-| `anvil` (foundry) | Local Ethereum dev node | macOS only |
-| `chisel` (foundry) | Solidity REPL | macOS only |
 | `tenderly` | Tenderly CLI | macOS only |
 | `psql` (postgresql@15) | Postgres client/server | macOS only |
 | `libpq` | Postgres client library | macOS only |
