@@ -94,7 +94,12 @@ FLAKE_USER=thomasharper
 # forge/cast/anvil/chisel for macOS as well as Linux, so it leaves
 # homebrew.brews for environment.systemPackages on macOS (and joins
 # home.packages on Ubuntu).
-EXPECTED_DARWIN_DRVPATH="/nix/store/zj70r6z8aamwxgbnz35nv094fm043h3m-darwin-system-26.05.adda04f.drv"
+# Re-pin again after moving foundry to scope = "basic" (the Linux dev box runs
+# DOTFILES_SETUP=basic, so a personal-scoped entry never reached it): the mac
+# profile is personal and already had foundry, so its package *set* is
+# byte-for-byte identical - only the tools.nix ordering moved, which reorders
+# environment.systemPackages and so the derivation.
+EXPECTED_DARWIN_DRVPATH="/nix/store/6vjklfibd8dcmd1mfliyc7g2yp85wjpg-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then

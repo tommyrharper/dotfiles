@@ -95,15 +95,17 @@
   # toolchain on every machine to build from source. nixpkgs ships nixd as a
   # binary, and a repo that is itself Nix is guaranteed to have Nix.
   { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # One derivation, four binaries: forge, cast, anvil, chisel. nixpkgs ships it
+  # for macOS and Linux alike, so Nix owns it on both instead of Homebrew, and
+  # it is scope = "basic" because the Solidity work happens on the Linux dev
+  # box too, which runs DOTFILES_SETUP=basic.
+  { name = "foundry"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   { name = "lcov"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   # nixpkgs ships this under the "libusb1" attribute.
   { name = "libusb"; scope = "personal"; platform = "all"; updatePolicy = "stable"; nixName = "libusb1"; }
-  # One derivation, four binaries: forge, cast, anvil, chisel. nixpkgs ships it
-  # for macOS and Linux alike, so Nix owns it on both instead of Homebrew.
-  { name = "foundry"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
 
   # Ubuntu-only build toolchain: nvim-treesitter (main) shells out to `cc`,
   # `make`, and `pkg-config` to compile parsers from source. macOS already
