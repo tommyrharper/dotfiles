@@ -15,6 +15,7 @@
 - By default use a fresh worktree for each unit of work and create a PR when you are done.
 - Always use treehouse for worktrees if it is available.
 - When you are done with a PR, always give me the link.
+- If treehouse is fully leased, attempt to reclaim a previous worktree or prune the worktrees before resorting to a normal git worktree.
 
 ## Maintaining this file
 
