@@ -16,6 +16,12 @@ o.mouse = ''                   -- no mouse in nvim; also lets Herdr keep host mo
 -- shows the cursor's own line as absolute). CursorLineNr/LineNr/Comment
 -- are existing highlight groups so this stays theme-agnostic.
 function _G.StatusColumnNumbers()
+  -- v:virtnum is non-zero on the wrapped part of a line and on virtual lines;
+  -- those get blank padding of the same width so the numbers aren't repeated
+  -- and the text stays aligned (this is what plain 'number' does for free).
+  if vim.v.virtnum ~= 0 then
+    return '        '
+  end
   local abs_hl = vim.v.relnum == 0 and 'CursorLineNr' or 'LineNr'
   return string.format('%%#%s#%3d%%* %%#Comment#%3d%%* ', abs_hl, vim.v.lnum, vim.v.relnum)
 end
