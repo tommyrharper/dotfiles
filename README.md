@@ -91,7 +91,7 @@ Two extra steps need `sudo`. Both are fault-isolated: if `sudo` is unavailable t
 
 ### What Ubuntu does not get
 
-No Homebrew casks or GUI apps (no desktop environment to run them), and no `platform = "macos"` tools from `tools.nix`: `thefuck`, `echidna`, `solc-select`, `tenderly`, `postgresql`, `libpq`, `colima`.
+No Homebrew casks or GUI apps (no desktop environment to run them), and no `platform = "macos"` tools from `tools.nix`: `thefuck`, `echidna`, `solc-select`, `tenderly`, `postgresql`, `libpq`, `colima`, `zola`.
 
 Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `installNativeTools` activation script installs each from its own `nativeInstallUrl` script, `nativeInstallNpmPackage`, or `nativeInstallUvTool`, skipping any already present in `~/.local/bin` (see `nativeInstallBinName` for tools whose launcher name differs from their entry name). It pre-creates and exports `~/.local/bin` and sets `CODEX_NON_INTERACTIVE=1` and `NPM_CONFIG_PREFIX=$HOME/.local`, so no installer prompts or rewrites a shell rc, and `home.sessionPath` keeps that directory reachable afterwards.
 

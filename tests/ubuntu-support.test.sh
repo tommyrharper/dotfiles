@@ -99,7 +99,11 @@ FLAKE_USER=thomasharper
 # profile is personal and already had foundry, so its package *set* is
 # byte-for-byte identical - only the tools.nix ordering moved, which reorders
 # environment.systemPackages and so the derivation.
-EXPECTED_DARWIN_DRVPATH="/nix/store/6vjklfibd8dcmd1mfliyc7g2yp85wjpg-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding zola (static site generator) to tools.nix as a
+# macOS-only personal tool: it lands in homebrew.brews, so the darwin
+# derivation legitimately changes. Ubuntu is untouched - platform = "macos"
+# keeps it out of every Linux list.
+EXPECTED_DARWIN_DRVPATH="/nix/store/mpl3vm2mhyxk4jmm0li2kmk3lj8bgyhs-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then

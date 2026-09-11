@@ -129,6 +129,11 @@
   { name = "postgresql"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; brewName = "postgresql@15"; }
   { name = "libpq"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "colima"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
+  # Static site generator (getzola.org), a single binary with templating,
+  # Sass, and search built in. Homebrew's `zola` formula is this tool; its
+  # "Old Names: gutenberg" entry is the project's own pre-rename name, not a
+  # different package.
+  { name = "zola"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
 
   # macOS GUI apps for this personal Mac only, installed as Homebrew casks.
   { name = "wezterm"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; isCask = true; }
