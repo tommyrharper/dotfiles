@@ -15,15 +15,25 @@ o.mouse = ''                   -- no mouse in nvim; also lets Herdr keep host mo
 -- every line at once (plain 'number'+'relativenumber' hybrid mode only
 -- shows the cursor's own line as absolute). CursorLineNr/LineNr/Comment
 -- are existing highlight groups so this stays theme-agnostic.
+local statuscolumn_width = 8   -- '%3d' + ' ' twice; also told to markview below
+
 function _G.StatusColumnNumbers()
   -- v:virtnum is non-zero on the wrapped part of a line and on virtual lines;
   -- those get blank padding of the same width so the numbers aren't repeated
   -- and the text stays aligned (this is what plain 'number' does for free).
   if vim.v.virtnum ~= 0 then
-    return '        '
+    return string.rep(' ', statuscolumn_width)
   end
   local abs_hl = vim.v.relnum == 0 and 'CursorLineNr' or 'LineNr'
   return string.format('%%#%s#%3d%%* %%#Comment#%3d%%* ', abs_hl, vim.v.lnum, vim.v.relnum)
 end
 o.statuscolumn = '%!v:lua.StatusColumnNumbers()'
+
+-- markview.nvim re-draws the block quote bar and list indent at the start of
+-- every soft-wrapped row, and works out where that is from the gutter width it
+-- measures itself. It mis-measures a custom 'statuscolumn', so the indent crept
+-- further right on each wrapped row and shredded the alignment of wrapped
+-- markdown. vim.g.markview_textoff is the escape hatch markview documents for
+-- exactly this.
+vim.g.markview_textoff = statuscolumn_width
 
