@@ -9,7 +9,13 @@ return {
     priority = 1000,
     lazy = false,
     opts = {
-      picker = { enabled = true },
+      picker = {
+        enabled = true,
+        win = {
+          input = { keys = { ['<M-H>'] = { 'toggle_hidden', mode = { 'i', 'n' } } } },
+          list = { keys = { ['<M-H>'] = 'toggle_hidden' } },
+        },
+      },
       notifier = { enabled = true },
       input = { enabled = true },
     },
