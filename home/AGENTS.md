@@ -16,6 +16,8 @@
 - Always use treehouse for worktrees if it is available.
 - When you are done with a PR, always give me the link.
 - If treehouse is fully leased, attempt to reclaim a previous worktree or prune the worktrees before resorting to a normal git worktree.
+- Make your comments and docs as short as possible.
+- Do not comment something in the code that the code explains. Only comment things that you can't tell from the code.
 
 ## Maintaining this file
 
