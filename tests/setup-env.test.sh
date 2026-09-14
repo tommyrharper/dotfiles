@@ -15,8 +15,9 @@ set -u
 # --- rejection -----------------------------------------------------------------
 
 # $2 is written to .env verbatim; the empty string means "no .env at all".
+# $3 is the valid-values hint the rejection must name.
 assert_rejected() {
-  local label=$1 content=$2 tmp output
+  local label=$1 content=$2 valid=${3:-"personal or basic"} tmp output
   tmp=$(dotfiles_test_tmproot "dotfiles-setup-env")
   if [ -n "$content" ]; then
     printf '%s\n' "$content" > "$tmp/.env"
@@ -26,7 +27,7 @@ assert_rejected() {
   if output=$( (dotfiles_require_setup_env "$tmp") 2>&1 ); then
     fail "setup-env.sh accepted $label - bootstrap.sh/rebuild.sh would build a setup nobody chose"
   fi
-  assert_contains "$output" "personal or basic" \
+  assert_contains "$output" "$valid" \
     "rejecting $label must say which values are valid, got: $output"
 }
 
@@ -35,6 +36,7 @@ assert_rejected "the unedited .env.example" "$(cat "$ROOT/.env.example")"
 assert_rejected "an empty DOTFILES_SETUP" "DOTFILES_SETUP="
 assert_rejected "an unknown profile" "DOTFILES_SETUP=laptop"
 assert_rejected "an .env with no DOTFILES_SETUP line at all" "SOMETHING_ELSE=personal"
+assert_rejected "a bogus BLOCKCHAIN_DEV" "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=yes')" "true or false"
 pass "setup-env.sh refuses a missing, unset, or unknown .env instead of guessing a profile"
 
 # --- acceptance ----------------------------------------------------------------
@@ -57,7 +59,13 @@ assert_accepted "the basic profile" "DOTFILES_SETUP=basic" "-basic"
 assert_accepted "a quoted value" 'DOTFILES_SETUP="basic"' "-basic"
 assert_accepted "an exported value with a trailing comment" \
   "export DOTFILES_SETUP=basic # server" "-basic"
-pass "setup-env.sh maps personal/basic onto the '' and '-basic' flake output suffixes"
+assert_accepted "the unedited example's BLOCKCHAIN_DEV=false" \
+  "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=false')" "-basic"
+assert_accepted "personal with blockchain dev" \
+  "$(printf 'DOTFILES_SETUP=personal\nBLOCKCHAIN_DEV=true')" "-blockchain"
+assert_accepted "basic with blockchain dev" \
+  "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=true')" "-basic-blockchain"
+pass "setup-env.sh maps DOTFILES_SETUP and BLOCKCHAIN_DEV onto the flake output suffixes"
 
 # --- the gate is wired into both entry points ------------------------------------
 
@@ -106,7 +114,7 @@ darwin_outputs=$(cd "$ROOT" && nix eval --json .#darwinConfigurations --apply bu
 home_outputs=$(cd "$ROOT" && nix eval --json .#homeConfigurations --apply builtins.attrNames 2>/dev/null) \
   || fail "homeConfigurations failed to evaluate"
 
-for suffix in "" "-basic"; do
+for suffix in "" "-basic" "-blockchain" "-basic-blockchain"; do
   assert_contains "$darwin_outputs" "\"${HOST_LABEL}${suffix}\"" \
     "flake.nix has no darwinConfigurations.${HOST_LABEL}${suffix} - rebuild.sh builds that name for one of the two .env profiles, got: $darwin_outputs"
   for system in x86_64-linux aarch64-linux; do
@@ -128,3 +136,16 @@ assert_contains "$personal_casks" '"slack"' \
 assert_not_contains "$basic_casks" '"slack"' \
   "DOTFILES_SETUP=basic must drop scope=personal casks, got: $basic_casks"
 pass "the -basic output really is usePersonalSetup = false (no personal casks)"
+
+# Same for the blockchain toggle: foundry is Nix-managed on macOS, so it shows
+# up in environment.systemPackages only when the suffix asks for it.
+system_package_names() {
+  (cd "$ROOT" && nix eval --json ".#darwinConfigurations.${HOST_LABEL}$1.config.environment.systemPackages" \
+    --apply 'map (p: p.pname or p.name)' 2>/dev/null) \
+    || fail "darwinConfigurations.${HOST_LABEL}$1 environment.systemPackages failed to evaluate"
+}
+assert_contains "$(system_package_names -blockchain)" '"foundry"' \
+  "the -blockchain output must install scope=blockchain tools"
+assert_not_contains "$(system_package_names "")" '"foundry"' \
+  "BLOCKCHAIN_DEV=false (the default) must drop scope=blockchain tools"
+pass "the -blockchain output really is blockchainDev = true (foundry present)"

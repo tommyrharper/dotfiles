@@ -4,7 +4,7 @@
 # it:
 #
 #   . "$DIR/setup-env.sh"
-#   dotfiles_require_setup_env "$DIR"   # sets DOTFILES_SETUP + DOTFILES_FLAKE_SUFFIX
+#   dotfiles_require_setup_env "$DIR"   # sets DOTFILES_SETUP, BLOCKCHAIN_DEV, DOTFILES_FLAKE_SUFFIX
 #
 # Why a suffix instead of a value flake.nix reads directly: Nix evaluates this
 # repo as a git tree, so an untracked file never reaches the store and
@@ -16,7 +16,7 @@
 # setup. Both callers gate on this before any install, symlink, or switch: a
 # machine built as the wrong profile is worse than one that refuses to start.
 dotfiles_require_setup_env() {
-  local dir="$1" env_file value
+  local dir="$1" env_file value blockchain
 
   env_file="$dir/.env"
   if [ ! -f "$env_file" ]; then
@@ -30,6 +30,7 @@ dotfiles_require_setup_env() {
   # both callers run sudo, so an unrelated typo must not execute as shell code.
   # Last assignment wins, the way a shell would resolve it.
   value="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DOTFILES_SETUP=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
+  blockchain="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?BLOCKCHAIN_DEV=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
 
   case "$value" in
     personal) DOTFILES_FLAKE_SUFFIX="" ;;
@@ -46,6 +47,17 @@ dotfiles_require_setup_env() {
       ;;
   esac
 
+  case "${blockchain:-false}" in
+    true)  DOTFILES_FLAKE_SUFFIX="$DOTFILES_FLAKE_SUFFIX-blockchain" ;;
+    false) ;;
+    *)
+      echo "BLOCKCHAIN_DEV=$blockchain in $env_file is not valid." >&2
+      echo "Use true or false (see $dir/.env.example) and re-run." >&2
+      return 1
+      ;;
+  esac
+
   DOTFILES_SETUP="$value"
-  export DOTFILES_SETUP DOTFILES_FLAKE_SUFFIX
+  BLOCKCHAIN_DEV="${blockchain:-false}"
+  export DOTFILES_SETUP BLOCKCHAIN_DEV DOTFILES_FLAKE_SUFFIX
 }

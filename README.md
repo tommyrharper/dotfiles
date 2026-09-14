@@ -112,9 +112,11 @@ Every machine picks one profile, and `bootstrap.sh` and `rebuild.sh` both refuse
 - `personal` - the full setup: `scope = "personal"` formulae and GUI casks on macOS (Slack, Discord, Notion, Figma, ...) on top of the shared dev tooling, plus the full TeX Live scheme.
 - `basic` - dev tooling only, the sensible choice on a server: no personal formulae or casks, minimal TeX Live (`pdflatex`/`xelatex`).
 
+`BLOCKCHAIN_DEV=true` in the same file adds the `scope = "blockchain"` tools (foundry, echidna, solc-select, tenderly) on top of either profile; it defaults to `false`.
+
 `.env` is gitignored, because "is this a personal machine" is a per-machine answer; a committed file would drag the choice onto every other machine on the next `git pull`.
 
-It is a flake output per profile rather than a value `flake.nix` reads, because Nix evaluates this repo as a git tree and an untracked file never reaches the store. So `flake.nix` builds both (`mac` and `mac-basic`, `<user>@<system>` and `<user>@<system>-basic`), and `setup-env.sh` turns `DOTFILES_SETUP` into the suffix or refuses. `tests/setup-env.test.sh` covers the refusals and that every suffix names a real output.
+It is a flake output per profile rather than a value `flake.nix` reads, because Nix evaluates this repo as a git tree and an untracked file never reaches the store. So `flake.nix` builds every combination (`mac`, `mac-basic`, `mac-blockchain`, `mac-basic-blockchain`, and the same suffixes on `<user>@<system>`), and `setup-env.sh` turns `DOTFILES_SETUP` and `BLOCKCHAIN_DEV` into the suffix or refuses. `tests/setup-env.test.sh` covers the refusals and that every suffix names a real output.
 
 To switch profiles, edit `.env` and run `./rebuild.sh`. Going `personal` -> `basic` on macOS removes the personal casks, because `homebrew.onActivation.cleanup = "zap"` uninstalls anything the config no longer declares.
 
@@ -161,7 +163,7 @@ programs.git = {
 
 | Property       | Question                                          | Values                     |
 | -------------- | ------------------------------------------------- | -------------------------- |
-| `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal`       |
+| `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal` / `blockchain` |
 | `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu` |
 | `updatePolicy` | Do I want the latest upstream version quickly?    | `stable` / `fast`          |
 | `isCask`       | If installed through Homebrew, is it a cask?      | `true` / omitted           |
@@ -183,8 +185,9 @@ Why a given tool is wired the way it is - no Homebrew formula, a hardcoded insta
 
 ```text
 scope:
-  basic setup    -> only scope=basic
-  personal setup -> basic + personal
+  basic setup         -> only scope=basic
+  personal setup      -> basic + personal
+  BLOCKCHAIN_DEV=true -> also scope=blockchain
 
 platform:
   platform=all             -> any OS
@@ -212,11 +215,11 @@ A native installer only actually runs for tools that set `nativeInstallUrl`, `na
 
 The invariant that keeps the two paths aligned: installer selection depends on `currentPlatform`, never on a tool's fields alone. The same `platform=all; updatePolicy=fast` tool is Homebrew-managed on macOS and natively installed on Ubuntu. `hasHomebrew = false` is the one exception, routing a tool with no formula through the native installer on macOS too. `isCask` only picks `homebrew.casks` over `homebrew.brews` for a tool already selected for Homebrew.
 
-`currentPlatform` is not a global constant: `configuration.nix` hardcodes `"macos"`, while each Ubuntu `homeConfigurations."<user>@<system>"` output derives it from `pkgs.stdenv.isDarwin`. The scope toggle, `usePersonalSetup`, comes from `.env` rather than a repo edit that would follow you onto every machine.
+`currentPlatform` is not a global constant: `configuration.nix` hardcodes `"macos"`, while each Ubuntu `homeConfigurations."<user>@<system>"` output derives it from `pkgs.stdenv.isDarwin`. The scope toggles, `usePersonalSetup` and `blockchainDev`, come from `.env` rather than a repo edit that would follow you onto every machine.
 
 ## Repo tour
 
-- `flake.nix` - the entry point. Wires nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`, and nixpkgs + standalone home-manager for the Linux `homeConfigurations."<user>@<system>"` outputs. Every output is built twice, once per setup profile.
+- `flake.nix` - the entry point. Wires nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`, and nixpkgs + standalone home-manager for the Linux `homeConfigurations."<user>@<system>"` outputs. Every output is built once per setup profile and `BLOCKCHAIN_DEV` value.
 - `.env.example` / `setup-env.sh` - the per-machine setup profile and the suffix it maps to.
 - `configuration.nix` - macOS system-level config: system defaults, Homebrew, macOS package selection.
 - `tools.nix` - the per-tool metadata table.
