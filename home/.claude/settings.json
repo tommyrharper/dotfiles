@@ -2,16 +2,6 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "gh-axi",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "*",
         "hooks": [
           {
