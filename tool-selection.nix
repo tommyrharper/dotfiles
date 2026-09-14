@@ -6,14 +6,16 @@
 # place instead of drifting between the macOS and Ubuntu paths.
 #
 # See README.md ("Package metadata") for the full field/selection reference.
-{ lib, usePersonalSetup, currentPlatform }:
+{ lib, usePersonalSetup, blockchainDev, currentPlatform }:
 
 let
   tools = import ./tools.nix;
 
   # Decision 1: is the tool wanted on this machine's setup at all?
   isEnabled = t:
-    t.scope == "basic" || usePersonalSetup;
+    t.scope == "basic"
+    || (t.scope == "personal" && usePersonalSetup)
+    || (t.scope == "blockchain" && blockchainDev);
 
   # Decision 2: does the tool apply to the OS we're installing onto?
   isForCurrentPlatform = t:

@@ -95,11 +95,13 @@
   # toolchain on every machine to build from source. nixpkgs ships nixd as a
   # binary, and a repo that is itself Nix is guaranteed to have Nix.
   { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # One derivation, four binaries: forge, cast, anvil, chisel. nixpkgs ships it
-  # for macOS and Linux alike, so Nix owns it on both instead of Homebrew, and
-  # it is scope = "basic" because the Solidity work happens on the Linux dev
-  # box too, which runs DOTFILES_SETUP=basic.
-  { name = "foundry"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+
+  # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
+  # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
+  { name = "foundry"; scope = "blockchain"; platform = "all"; updatePolicy = "stable"; }
+  { name = "echidna"; scope = "blockchain"; platform = "macos"; updatePolicy = "stable"; }
+  { name = "solc-select"; scope = "blockchain"; platform = "macos"; updatePolicy = "stable"; }
+  { name = "tenderly"; scope = "blockchain"; platform = "macos"; updatePolicy = "fast"; brewName = "tenderly/tenderly/tenderly"; }
 
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
@@ -123,9 +125,6 @@
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
   { name = "thefuck"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
-  { name = "echidna"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
-  { name = "solc-select"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
-  { name = "tenderly"; scope = "personal"; platform = "macos"; updatePolicy = "fast"; brewName = "tenderly/tenderly/tenderly"; }
   { name = "postgresql"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; brewName = "postgresql@15"; }
   { name = "libpq"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }
   { name = "colima"; scope = "personal"; platform = "macos"; updatePolicy = "stable"; }

@@ -1,4 +1,4 @@
-{ user, lib, pkgs, usePersonalSetup, ... }:
+{ user, lib, pkgs, usePersonalSetup, blockchainDev, ... }:
 
 let
   # The only OS this config installs onto today. Passed into the shared
@@ -7,7 +7,7 @@ let
   # of the tool ontology. See README.md ("Package metadata") for the full
   # field/selection-logic reference.
   currentPlatform = "macos";
-  sel = import ./tool-selection.nix { inherit lib usePersonalSetup currentPlatform; };
+  sel = import ./tool-selection.nix { inherit lib usePersonalSetup blockchainDev currentPlatform; };
 in
 {
   # Determinate already manages the Nix daemon, so nix-darwin shouldn't.

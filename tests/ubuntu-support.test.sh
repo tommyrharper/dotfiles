@@ -103,7 +103,10 @@ FLAKE_USER=thomasharper
 # macOS-only personal tool: it lands in homebrew.brews, so the darwin
 # derivation legitimately changes. Ubuntu is untouched - platform = "macos"
 # keeps it out of every Linux list.
-EXPECTED_DARWIN_DRVPATH="/nix/store/mpl3vm2mhyxk4jmm0li2kmk3lj8bgyhs-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding the BLOCKCHAIN_DEV toggle: foundry, echidna,
+# solc-select, and tenderly moved to scope = "blockchain", which the plain
+# `mac` output (BLOCKCHAIN_DEV=false) no longer installs.
+EXPECTED_DARWIN_DRVPATH="/nix/store/g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -257,6 +260,7 @@ spec-kit specify"
         sel = import $ROOT/tool-selection.nix {
           inherit (pkgs) lib;
           usePersonalSetup = true;
+          blockchainDev = false;
           currentPlatform = \"ubuntu\";
         };
       in pkgs.lib.concatStringsSep \"\n\" (map (t: t.name + \" \" + sel.nativeInstallBinName t) sel.nativeInstallTools)

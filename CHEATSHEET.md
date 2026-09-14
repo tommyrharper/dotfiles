@@ -102,10 +102,6 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `tree` | Directory tree |
 | `wget` | HTTP download |
 | `cmake` | Build system generator |
-| `forge` (foundry) | Build, test and deploy Solidity projects |
-| `cast` (foundry) | Chain RPC calls, ABI/unit conversion, tx inspection |
-| `anvil` (foundry) | Local Ethereum dev node |
-| `chisel` (foundry) | Solidity REPL |
 | `uv` | Python project runner |
 | `tar` / `gzip` / `bzip2` | Archives |
 | `pdflatex` / `xelatex` | TeX Live; full scheme when `.env` has `DOTFILES_SETUP=personal`, otherwise basic |
@@ -119,6 +115,18 @@ Everything selected by `tools.nix` / `tool-selection.nix`, plus `home.packages` 
 | `no-mistakes` | Validation pipeline CLI |
 | `treehouse` | Worktree pool manager |
 | `specify` | GitHub Spec Kit CLI (`specify init` scaffolds spec-driven projects) |
+
+### Blockchain dev only (`BLOCKCHAIN_DEV=true` in `.env`)
+
+| Command | What it does | Platform |
+| --- | --- | --- |
+| `forge` (foundry) | Build, test and deploy Solidity projects | Both |
+| `cast` (foundry) | Chain RPC calls, ABI/unit conversion, tx inspection | Both |
+| `anvil` (foundry) | Local Ethereum dev node | Both |
+| `chisel` (foundry) | Solidity REPL | Both |
+| `echidna` | Solidity fuzzer | macOS only |
+| `solc-select` | Switch solc versions | macOS only |
+| `tenderly` | Tenderly CLI | macOS only |
 
 ### Personal machines only (`DOTFILES_SETUP=personal` in `.env`)
 
