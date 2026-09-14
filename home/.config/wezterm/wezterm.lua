@@ -42,6 +42,18 @@ config.keys = {
   { key = "k", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Up") },
   { key = "j", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Down") },
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
+  {
+    key = "T",
+    mods = "LEADER|SHIFT",
+    action = act.PromptInputLine({
+      description = "Enter new tab title:",
+      action = wezterm.action_callback(function(window, pane, line)
+        if line then
+          window:active_tab():set_title(line)
+        end
+      end),
+    }),
+  },
   -- Leader+o: QuickSelect restricted to URLs, then open the picked one in the
   -- default browser. Ctrl+Shift+Space (wezterm's built-in QuickSelect) is left
   -- alone and still just copies the hinted text to the clipboard.
