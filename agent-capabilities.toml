@@ -24,12 +24,6 @@
 # `skills add <source> -g --agent <agents> -y` is the install path.
 
 [[capability]]
-name = "gh-axi"
-kind = "skill"
-source = "kunchenguid/gh-axi"
-targets = ["claude", "codex", "opencode"]
-
-[[capability]]
 name = "quota-axi"
 kind = "skill"
 source = "kunchenguid/quota-axi"
