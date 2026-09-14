@@ -28,8 +28,8 @@ TEST_HOME="$TMP_ROOT/home"
 ZDOTDIR="$TMP_ROOT/zdotdir"
 mkdir -p "$TEST_HOME" "$ZDOTDIR"
 
-nix eval --raw \
-  "$ROOT#darwinConfigurations.mac.config.home-manager.users.thomasharper.programs.zsh.initContent" \
+nix eval --impure --raw \
+  "$ROOT#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.programs.zsh.initContent" \
   >"$ZDOTDIR/.zshrc"
 
 # EDITOR is set to the real value on purpose: with it unset zsh picks the emacs

@@ -37,6 +37,10 @@ assert_rejected "an empty DOTFILES_SETUP" "DOTFILES_SETUP="
 assert_rejected "an unknown profile" "DOTFILES_SETUP=laptop"
 assert_rejected "an .env with no DOTFILES_SETUP line at all" "SOMETHING_ELSE=personal"
 assert_rejected "a bogus BLOCKCHAIN_DEV" "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=yes')" "true or false"
+assert_rejected "a DOTFILES_USER with a space in it" \
+  "$(printf 'DOTFILES_SETUP=basic\nDOTFILES_USER=not a user')" "letters, digits"
+assert_rejected "a DOTFILES_USER with a slash in it" \
+  "$(printf 'DOTFILES_SETUP=basic\nDOTFILES_USER=../etc')" "letters, digits"
 pass "setup-env.sh refuses a missing, unset, or unknown .env instead of guessing a profile"
 
 # --- acceptance ----------------------------------------------------------------
@@ -66,6 +70,31 @@ assert_accepted "personal with blockchain dev" \
 assert_accepted "basic with blockchain dev" \
   "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=true')" "-basic-blockchain"
 pass "setup-env.sh maps DOTFILES_SETUP and BLOCKCHAIN_DEV onto the flake output suffixes"
+
+# --- the username ----------------------------------------------------------------
+
+# flake.nix has no username in it any more: it reads DOTFILES_USER out of the
+# environment, and this is what puts it there.
+assert_user() {
+  local label=$1 content=$2 expected=$3 tmp
+  tmp=$(dotfiles_test_tmproot "dotfiles-setup-env")
+  printf '%s\n' "$content" > "$tmp/.env"
+
+  DOTFILES_USER="<unset>"
+  dotfiles_require_setup_env "$tmp" \
+    || fail "setup-env.sh rejected $label, which is a valid .env"
+  [ "$DOTFILES_USER" = "$expected" ] \
+    || fail "$label must resolve DOTFILES_USER to '$expected', got '$DOTFILES_USER'"
+}
+
+assert_user "an explicit username" \
+  "$(printf 'DOTFILES_SETUP=basic\nDOTFILES_USER=someone.else')" "someone.else"
+assert_user "a quoted, exported username with a trailing comment" \
+  "$(printf 'DOTFILES_SETUP=basic\nexport DOTFILES_USER="someone-else" # the server account')" "someone-else"
+assert_user "a blank DOTFILES_USER" \
+  "$(printf 'DOTFILES_SETUP=basic\nDOTFILES_USER=')" "$(id -un)"
+assert_user "an .env with no DOTFILES_USER line at all" "DOTFILES_SETUP=basic" "$(id -un)"
+pass "setup-env.sh resolves DOTFILES_USER from .env, falling back to the login user"
 
 # --- the gate is wired into both entry points ------------------------------------
 
@@ -106,12 +135,15 @@ if ! command -v nix >/dev/null 2>&1; then
   exit 0
 fi
 
-FLAKE_USER="$(sed -nE 's/^[[:space:]]*user = "([^"]+)";.*/\1/p' "$ROOT/flake.nix" | head -n1)"
+# The acceptance cases above ran dotfiles_require_setup_env against fixture
+# .env files, which overwrote the exported DOTFILES_USER. Put the test-wide one
+# back, since it is what the evaluations below name their outputs after.
+export DOTFILES_USER="$FLAKE_USER"
 HOST_LABEL="$(sed -nE 's/^[[:space:]]*hostLabel = "([^"]+)";.*/\1/p' "$ROOT/flake.nix" | head -n1)"
 
-darwin_outputs=$(cd "$ROOT" && nix eval --json .#darwinConfigurations --apply builtins.attrNames 2>/dev/null) \
+darwin_outputs=$(cd "$ROOT" && nix eval --impure --json .#darwinConfigurations --apply builtins.attrNames 2>/dev/null) \
   || fail "darwinConfigurations failed to evaluate"
-home_outputs=$(cd "$ROOT" && nix eval --json .#homeConfigurations --apply builtins.attrNames 2>/dev/null) \
+home_outputs=$(cd "$ROOT" && nix eval --impure --json .#homeConfigurations --apply builtins.attrNames 2>/dev/null) \
   || fail "homeConfigurations failed to evaluate"
 
 for suffix in "" "-basic" "-blockchain" "-basic-blockchain"; do
@@ -124,11 +156,20 @@ for suffix in "" "-basic" "-blockchain" "-basic-blockchain"; do
 done
 pass "every suffix setup-env.sh can return names a real darwin and Linux flake output"
 
+# The username has to come from the environment, not from a tracked file:
+# a second, different DOTFILES_USER must move home.username with it.
+other_user=$(cd "$ROOT" && DOTFILES_USER=someone-else nix eval --impure --raw \
+  '.#darwinConfigurations.mac.config.home-manager.users.someone-else.home.username' 2>/dev/null) \
+  || fail "flake.nix did not build for DOTFILES_USER=someone-else - the username is not coming from the environment"
+[ "$other_user" = "someone-else" ] \
+  || fail "home.username is '$other_user', not the DOTFILES_USER the build was given"
+pass "flake.nix takes its username from DOTFILES_USER, so no tracked file names the account"
+
 # The suffix has to change what gets installed, not just the output name:
 # personal casks are the visible half of the difference on macOS.
-personal_casks=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.${HOST_LABEL}.config.homebrew.casks" 2>/dev/null) \
+personal_casks=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${HOST_LABEL}.config.homebrew.casks" 2>/dev/null) \
   || fail "darwinConfigurations.${HOST_LABEL} homebrew.casks failed to evaluate"
-basic_casks=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.${HOST_LABEL}-basic.config.homebrew.casks" 2>/dev/null) \
+basic_casks=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${HOST_LABEL}-basic.config.homebrew.casks" 2>/dev/null) \
   || fail "darwinConfigurations.${HOST_LABEL}-basic homebrew.casks failed to evaluate"
 
 assert_contains "$personal_casks" '"slack"' \
@@ -140,7 +181,7 @@ pass "the -basic output really is usePersonalSetup = false (no personal casks)"
 # Same for the blockchain toggle: foundry is Nix-managed on macOS, so it shows
 # up in environment.systemPackages only when the suffix asks for it.
 system_package_names() {
-  (cd "$ROOT" && nix eval --json ".#darwinConfigurations.${HOST_LABEL}$1.config.environment.systemPackages" \
+  (cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${HOST_LABEL}$1.config.environment.systemPackages" \
     --apply 'map (p: p.pname or p.name)' 2>/dev/null) \
     || fail "darwinConfigurations.${HOST_LABEL}$1 environment.systemPackages failed to evaluate"
 }

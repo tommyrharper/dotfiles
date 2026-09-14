@@ -12,8 +12,6 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-FLAKE_USER=thomasharper
-
 # Pinned at the moment Ubuntu support was layered on top of the tools.nix
 # refactor (PR #17, merged as 51fe4b7), then re-pinned after deliberate
 # macOS-affecting changes to shared Home Manager zsh initContent, most recently
@@ -106,7 +104,13 @@ FLAKE_USER=thomasharper
 # Re-pin again after adding the BLOCKCHAIN_DEV toggle: foundry, echidna,
 # solc-select, and tenderly moved to scope = "blockchain", which the plain
 # `mac` output (BLOCKCHAIN_DEV=false) no longer installs.
-EXPECTED_DARWIN_DRVPATH="/nix/store/g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh-darwin-system-26.05.adda04f.drv"
+# Re-pin again after the username moved out of flake.nix into $DOTFILES_USER:
+# the username is interpolated into home.homeDirectory and every path under
+# it, and tests now build as the fixed synthetic lib.sh user rather than
+# whoever the repo owner is. Nothing about the macOS config itself changed -
+# rebuilding this same tree with DOTFILES_USER set to the old literal still
+# produced the previous pin, g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh.
+EXPECTED_DARWIN_DRVPATH="/nix/store/8bc4frb2c90rz5wycxm91ra68v3q3vfs-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
@@ -114,7 +118,7 @@ test_darwin_drvpath_unchanged() {
     return 0
   fi
   local drv
-  drv=$(cd "$ROOT" && nix eval --raw .#darwinConfigurations.mac.system.drvPath 2>/dev/null) \
+  drv=$(cd "$ROOT" && nix eval --impure --raw .#darwinConfigurations.mac.system.drvPath 2>/dev/null) \
     || fail "darwinConfigurations.mac.system.drvPath failed to evaluate"
   [ "$drv" = "$EXPECTED_DARWIN_DRVPATH" ] \
     || fail "darwinConfigurations.mac's evaluated derivation changed (expected $EXPECTED_DARWIN_DRVPATH, got $drv) - Ubuntu support must never change macOS behavior"
@@ -128,7 +132,7 @@ test_linux_home_configurations_evaluate() {
   fi
   local system drv
   for system in x86_64-linux aarch64-linux; do
-    drv=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".activationPackage.drvPath" 2>/dev/null) \
+    drv=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".activationPackage.drvPath" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" failed to evaluate"
     assert_contains "$drv" ".drv" "homeConfigurations.\"${FLAKE_USER}@${system}\" did not evaluate to a real derivation: $drv"
   done
@@ -142,7 +146,7 @@ test_linux_home_manager_cli_enabled() {
   fi
   local system enabled
   for system in x86_64-linux aarch64-linux; do
-    enabled=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.programs.home-manager.enable" 2>/dev/null) \
+    enabled=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.programs.home-manager.enable" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home-manager CLI setting failed to evaluate"
     [ "$enabled" = "true" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" must install the home-manager CLI so ./rebuild.sh works after bootstrap"
@@ -157,7 +161,7 @@ test_linux_treesitter_buildtools_present() {
   fi
   local system names pkg
   for system in x86_64-linux aarch64-linux; do
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     for pkg in gcc-wrapper gnumake pkg-config-wrapper; do
@@ -179,7 +183,7 @@ test_linux_nodejs_present_for_npm_backed_native_tools() {
   # formula's own `node` dependency covers this) - see home.nix's home.packages.
   local system names
   for system in x86_64-linux aarch64-linux; do
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"nodejs\"" \
@@ -204,13 +208,13 @@ test_linux_npm_config_prefix_exported() {
   # bootstrap. It must stay Linux-only: macOS gets these tools via Homebrew.
   local system value names
   for system in x86_64-linux aarch64-linux; do
-    value=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.NPM_CONFIG_PREFIX" 2>/dev/null) \
+    value=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.NPM_CONFIG_PREFIX" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not set home.sessionVariables.NPM_CONFIG_PREFIX - npm root -g in a normal shell would resolve to the read-only Nix store prefix, not ~/.local"
     [ "$value" = "/home/${FLAKE_USER}/.local" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" NPM_CONFIG_PREFIX must be /home/${FLAKE_USER}/.local to match installNativeTools' own export and home.sessionPath's ~/.local/bin, got: $value"
   done
 
-  names=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" --apply 'builtins.attrNames' 2>/dev/null) \
+  names=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" --apply 'builtins.attrNames' 2>/dev/null) \
     || fail "darwinConfigurations.mac home.sessionVariables failed to evaluate"
   assert_not_contains "$names" "NPM_CONFIG_PREFIX" \
     "darwinConfigurations.mac must not get NPM_CONFIG_PREFIX at all - macOS installs these tools via Homebrew. Note home.sessionVariables is a lazyAttrsOf, so gating a leaf attribute with lib.mkIf false leaves it present-but-null here rather than removing it; gate the whole attrset with lib.optionalAttrs instead"
@@ -253,7 +257,7 @@ spec-kit specify"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
   for system in x86_64-linux aarch64-linux; do
-    selected=$(cd "$ROOT" && nix eval --raw --impure --expr "
+    selected=$(cd "$ROOT" && nix eval --impure --raw --impure --expr "
       let
         flake = builtins.getFlake \"path:$ROOT\";
         pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
@@ -269,7 +273,7 @@ spec-kit specify"
     [ "$selected" = "$expected_name_binname" ] \
       || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's unattended installers (name binName) for $system, got: $selected"
 
-    data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
+    data=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
 
     tmp_home=$(dotfiles_test_tmproot "dotfiles-native-install-$system")
@@ -280,8 +284,8 @@ spec-kit specify"
         "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools dry-run missing expected line: $expect_line (got: $dry_run_output)"
     done
 
-    path_has_local_bin=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionPath" \
-      --apply 'p: if builtins.elem "/home/thomasharper/.local/bin" p then "true" else "false"' 2>/dev/null) \
+    path_has_local_bin=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionPath" \
+      --apply "p: if builtins.elem \"/home/${FLAKE_USER}/.local/bin\" p then \"true\" else \"false\"" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.sessionPath failed to evaluate"
     [ "$path_has_local_bin" = "true" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
@@ -306,12 +310,12 @@ test_herdr_integrations_run_after_native_install_on_linux() {
   fi
   local system after
   for system in x86_64-linux aarch64-linux; do
-    after=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+    after=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installHerdrAgentIntegrations activation dependencies failed to evaluate"
     assert_contains "$after" "\"installNativeTools\"" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" must run installHerdrAgentIntegrations after installNativeTools so fresh Ubuntu activations install herdr before installing its agent integrations"
   done
-  after=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
+  after=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installHerdrAgentIntegrations.after" 2>/dev/null) \
     || fail "darwinConfigurations.mac installHerdrAgentIntegrations activation dependencies failed to evaluate"
   assert_contains "$after" "\"installNativeTools\"" \
     "darwinConfigurations.mac must also order installHerdrAgentIntegrations after installNativeTools now that entry exists on both platforms (no-mistakes' native install on macOS) - keep the ordering identical on both platforms rather than branching it per OS"
@@ -330,11 +334,11 @@ test_linux_archive_tools_present_for_native_installers() {
   # gnutar and gzip must be Nix-managed (home.packages) and wired into
   # installNativeTools' own curated PATH export, not just assumed present.
   local current_system system names data gnutar_path gzip_path coreutils_path patched tmp_home empty_path fixture out exit_code ran_archive_check
-  current_system=$(nix eval --raw --impure --expr builtins.currentSystem 2>/dev/null) \
+  current_system=$(nix eval --impure --raw --impure --expr builtins.currentSystem 2>/dev/null) \
     || fail "builtins.currentSystem failed to evaluate"
   ran_archive_check=false
   for system in x86_64-linux aarch64-linux; do
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"gnutar\"" \
@@ -342,23 +346,23 @@ test_linux_archive_tools_present_for_native_installers() {
     assert_contains "$names" "\"gzip\"" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing gzip - codex's installer uses tar -xzf, and Nix gnutar shells out to gzip for that"
 
-    data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
+    data=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools activation script failed to evaluate"
-    gnutar_path=$(cd "$ROOT" && nix eval --raw --impure --expr "
+    gnutar_path=$(cd "$ROOT" && nix eval --impure --raw --impure --expr "
       let
         flake = builtins.getFlake \"path:$ROOT\";
         pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
       in pkgs.gnutar
     " 2>/dev/null) \
       || fail "pkgs.gnutar failed to evaluate for $system"
-    gzip_path=$(cd "$ROOT" && nix eval --raw --impure --expr "
+    gzip_path=$(cd "$ROOT" && nix eval --impure --raw --impure --expr "
       let
         flake = builtins.getFlake \"path:$ROOT\";
         pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
       in pkgs.gzip
     " 2>/dev/null) \
       || fail "pkgs.gzip failed to evaluate for $system"
-    coreutils_path=$(cd "$ROOT" && nix eval --raw --impure --expr "
+    coreutils_path=$(cd "$ROOT" && nix eval --impure --raw --impure --expr "
       let
         flake = builtins.getFlake \"path:$ROOT\";
         pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
@@ -421,7 +425,7 @@ test_linux_native_install_fault_isolation() {
   # codex failure loudly instead of aborting silently.
   local system data patched tmp_home out exit_code bin
   for system in x86_64-linux aarch64-linux; do
-    data=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
+    data=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools activation script failed to evaluate"
 
     patched=$(printf '%s\n' "$data" \
@@ -467,7 +471,7 @@ test_darwin_native_install_only_homebrewless_tools() {
   # stay exactly where they were - Homebrew-managed on macOS - so this script
   # must mention those two and nothing else.
   local data brews casks names other_marker
-  data=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.activation.installNativeTools.data' 2>/dev/null) \
+  data=$(cd "$ROOT" && nix eval --impure --raw ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installNativeTools.data" 2>/dev/null) \
     || fail "darwinConfigurations.mac has no installNativeTools activation script - no-mistakes (hasHomebrew = false) needs it on macOS too"
   assert_contains "$data" "https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh" \
     "darwinConfigurations.mac installNativeTools must install no-mistakes (a Homebrew-less fast/all tool)"
@@ -493,9 +497,9 @@ test_darwin_native_install_only_homebrewless_tools() {
       "darwinConfigurations.mac installNativeTools must not also try to natively install the tool behind '$other_marker' - it stays Homebrew-managed on macOS"
   done
 
-  brews=$(cd "$ROOT" && nix eval --json '.#darwinConfigurations.mac.config.homebrew.brews' 2>/dev/null) \
+  brews=$(cd "$ROOT" && nix eval --impure --json '.#darwinConfigurations.mac.config.homebrew.brews' 2>/dev/null) \
     || fail "darwinConfigurations.mac homebrew.brews failed to evaluate"
-  casks=$(cd "$ROOT" && nix eval --json '.#darwinConfigurations.mac.config.homebrew.casks' 2>/dev/null) \
+  casks=$(cd "$ROOT" && nix eval --impure --json '.#darwinConfigurations.mac.config.homebrew.casks' 2>/dev/null) \
     || fail "darwinConfigurations.mac homebrew.casks failed to evaluate"
   assert_not_contains "$brews" "\"no-mistakes\"" \
     "darwinConfigurations.mac must not put no-mistakes in homebrew.brews - it has no Homebrew formula and brew bundle would fail"
@@ -515,7 +519,7 @@ test_darwin_native_install_only_homebrewless_tools() {
   assert_contains "$casks" "\"cursor-cli\"" \
     "darwinConfigurations.mac must install Cursor Agent from the cursor-cli Homebrew cask, not through the native installer"
 
-  names=$(cd "$ROOT" && nix eval --raw '.#darwinConfigurations.mac.config.home-manager.users.thomasharper.home.sessionPath' --apply 'p: if builtins.elem "/Users/thomasharper/.local/bin" p then "true" else "false"' 2>/dev/null) \
+  names=$(cd "$ROOT" && nix eval --impure --raw ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionPath" --apply "p: if builtins.elem \"/Users/${FLAKE_USER}/.local/bin\" p then \"true\" else \"false\"" 2>/dev/null) \
     || fail "darwinConfigurations.mac home.sessionPath failed to evaluate"
   [ "$names" = "true" ] \
     || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
@@ -530,13 +534,13 @@ test_linux_ssh_agent_persists() {
   fi
   local system enabled
   for system in x86_64-linux aarch64-linux; do
-    enabled=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.services.ssh-agent.enable" 2>/dev/null) \
+    enabled=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.services.ssh-agent.enable" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" services.ssh-agent.enable failed to evaluate"
     [ "$enabled" = "true" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" must enable services.ssh-agent so a key added once survives across shells on a minimal Ubuntu server with no gnome-keyring"
 
     local unit
-    unit=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.ssh-agent.Install.WantedBy" 2>/dev/null) \
+    unit=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.ssh-agent.Install.WantedBy" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" systemd user ssh-agent unit failed to evaluate"
     assert_contains "$unit" "default.target" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" ssh-agent systemd unit must start on login (WantedBy default.target) to survive across shells"
@@ -551,7 +555,7 @@ test_linux_ssh_agent_lingers_across_sessions() {
   fi
   local system script
   for system in x86_64-linux aarch64-linux; do
-    script=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.enableSshAgentLinger.data" 2>/dev/null) \
+    script=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.enableSshAgentLinger.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" enableSshAgentLinger activation script failed to evaluate"
     assert_contains "$script" "loginctl enable-linger" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" must run loginctl enable-linger on activation - without it, systemd-logind kills the ssh-agent systemd --user unit (and any cached key) as soon as the SSH session that ran rebuild closes, so a fresh SSH connection always gets an empty agent"
@@ -565,7 +569,7 @@ test_darwin_ssh_agent_not_duplicated() {
     return 0
   fi
   local enabled
-  enabled=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.services.ssh-agent.enable" 2>/dev/null) \
+  enabled=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.services.ssh-agent.enable" 2>/dev/null) \
     || fail "darwinConfigurations.mac home-manager services.ssh-agent.enable failed to evaluate"
   [ "$enabled" = "false" ] \
     || fail "darwinConfigurations.mac must leave services.ssh-agent disabled - macOS already gets a persistent agent for free via launchd + Keychain (UseKeychain), enabling it here would run a redundant agent"
@@ -666,7 +670,7 @@ test_linux_rootless_docker_service() {
   # ("Rootless Docker").
   local system docker_path exec_start wanted_by docker_host names
   for system in x86_64-linux aarch64-linux; do
-    docker_path=$(cd "$ROOT" && nix eval --raw --impure --expr "
+    docker_path=$(cd "$ROOT" && nix eval --impure --raw --impure --expr "
       let
         flake = builtins.getFlake \"path:$ROOT\";
         pkgs = import flake.inputs.nixpkgs { system = \"$system\"; };
@@ -674,23 +678,23 @@ test_linux_rootless_docker_service() {
     " 2>/dev/null) \
       || fail "pkgs.docker failed to evaluate for $system"
 
-    exec_start=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Service.ExecStart" \
+    exec_start=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Service.ExecStart" \
       --apply 'e: if builtins.isList e then builtins.concatStringsSep " " e else e' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no systemd --user docker service - rootless Docker needs a unit, not just the package"
     [ "$exec_start" = "$docker_path/bin/dockerd-rootless" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit must ExecStart $docker_path/bin/dockerd-rootless (the rootless entry point of the same pkgs.docker home.packages installs), got: $exec_start"
 
-    wanted_by=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Install.WantedBy" 2>/dev/null) \
+    wanted_by=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.systemd.user.services.docker.Install.WantedBy" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit has no Install.WantedBy"
     assert_contains "$wanted_by" "default.target" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" docker unit must start on login (WantedBy default.target); enableSshAgentLinger's loginctl enable-linger is what then keeps it alive between SSH sessions"
 
-    docker_host=$(cd "$ROOT" && nix eval --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.DOCKER_HOST" 2>/dev/null) \
+    docker_host=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.sessionVariables.DOCKER_HOST" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not set DOCKER_HOST - the rootless daemon listens on the per-uid runtime socket and the CLI does not look there by itself"
     [ "$docker_host" = 'unix:///run/user/$(id -u)/docker.sock' ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" DOCKER_HOST must be unix:///run/user/\$(id -u)/docker.sock, expanded at hm-session-vars.sh source time so it stays correct for whichever uid the shell runs as, got: $docker_host"
 
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"docker\"" \
@@ -710,13 +714,13 @@ test_darwin_rootless_docker_absent() {
   # present-but-null here rather than removing it - hence home.nix's
   # lib.optionalAttrs.
   local units session_vars
-  units=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.systemd.user.services" \
+  units=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.systemd.user.services" \
     --apply 'a: builtins.attrNames a' 2>/dev/null) \
     || fail "darwinConfigurations.mac systemd.user.services failed to evaluate"
   assert_not_contains "$units" "\"docker\"" \
     "darwinConfigurations.mac must not get the Linux-only rootless Docker systemd unit - macOS has no systemd and gets Docker from Colima"
 
-  session_vars=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" \
+  session_vars=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.sessionVariables" \
     --apply 'a: builtins.attrNames a' 2>/dev/null) \
     || fail "darwinConfigurations.mac home.sessionVariables failed to evaluate"
   assert_not_contains "$session_vars" "DOCKER_HOST" \
@@ -739,14 +743,14 @@ test_uv_selected_on_both_platforms() {
   # uv were configured and would prove nothing; assert the real route instead.
   local system names darwin_system_pkgs brews casks
   for system in x86_64-linux aarch64-linux; do
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"uv\"" \
       "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing uv - useNix must select it into the Linux home.packages"
   done
 
-  darwin_system_pkgs=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
+  darwin_system_pkgs=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
     --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
     || fail "darwinConfigurations.mac environment.systemPackages failed to evaluate"
   assert_contains "$darwin_system_pkgs" "\"uv\"" \
@@ -755,9 +759,9 @@ test_uv_selected_on_both_platforms() {
   # Nix owns it on macOS, not Homebrew: useHomebrew only claims tools that are
   # macOS-specific or fast-moving, so a stray uv here would mean someone
   # changed its platform or updatePolicy rather than just its availability.
-  brews=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.homebrew.brews" 2>/dev/null) \
+  brews=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.homebrew.brews" 2>/dev/null) \
     || fail "darwinConfigurations.mac homebrew.brews failed to evaluate"
-  casks=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.homebrew.casks" 2>/dev/null) \
+  casks=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.homebrew.casks" 2>/dev/null) \
     || fail "darwinConfigurations.mac homebrew.casks failed to evaluate"
   assert_not_contains "$brews" "\"uv\"" \
     "darwinConfigurations.mac must get uv from Nix, not Homebrew - it is updatePolicy = \"stable\" and not macOS-specific"
@@ -812,7 +816,7 @@ test_python3_linux_only_for_mason() {
   # silently shadow the system interpreter on a machine nobody asked to change.
   local system names darwin_system_pkgs
   for system in x86_64-linux aarch64-linux; do
-    names=$(cd "$ROOT" && nix eval --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
+    names=$(cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.packages" \
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"python3\"" \
@@ -822,7 +826,7 @@ test_python3_linux_only_for_mason() {
   # Unlike the uv check above, this absence is meaningful: environment.systemPackages
   # is exactly the route a platform = "all" Nix tool takes to macOS, so a python3
   # appearing here is the signal that someone widened the platform field.
-  darwin_system_pkgs=$(cd "$ROOT" && nix eval --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
+  darwin_system_pkgs=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.mac.config.environment.systemPackages" \
     --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
     || fail "darwinConfigurations.mac environment.systemPackages failed to evaluate"
   assert_not_contains "$darwin_system_pkgs" "\"python3\"" \

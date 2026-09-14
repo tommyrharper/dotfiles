@@ -15,6 +15,15 @@ DOTFILES_TEST_LIB_SOURCED=1
 # shellcheck disable=SC2034
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# flake.nix takes the username from this variable (see setup-env.sh), so every
+# `nix eval` of a flake output below needs it set and --impure passed. Pinned
+# to a fixed synthetic name, and overriding whatever the surrounding shell has,
+# so evaluations - including the drvPath assertions in ubuntu-support.test.sh -
+# come out identical on any machine and on CI.
+export DOTFILES_USER=dotfiles-test-user
+# shellcheck disable=SC2034
+FLAKE_USER="$DOTFILES_USER"
+
 fail() {
   printf 'not ok - %s\n' "$1" >&2
   exit 1

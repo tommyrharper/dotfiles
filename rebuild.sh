@@ -24,14 +24,13 @@ if [ "$OS" = Darwin ]; then
   # path Nix's own libgit2 fetcher reads.
   sudo git config -f /etc/gitconfig --get-all safe.directory 2>/dev/null | grep -qx "$DIR" \
     || sudo git config -f /etc/gitconfig --add safe.directory "$DIR"
-  exec sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ~/.dotfiles#"${HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
+  # --impure plus DOTFILES_USER: flake.nix reads the username from the
+  # environment (see setup-env.sh), and sudo's env_reset would otherwise drop
+  # it before nix evaluates.
+  exec sudo env DOTFILES_USER="$DOTFILES_USER" \
+    /run/current-system/sw/bin/darwin-rebuild switch --impure \
+    --flake ~/.dotfiles#"${HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
 elif [ "$OS" = Linux ]; then
-  FLAKE_USER="$(sed -nE 's/^[[:space:]]*user = "([^"]+)";.*/\1/p' "$DIR/flake.nix" | head -n1)"
-  if [ -z "$FLAKE_USER" ]; then
-    echo "Could not find the single \"user = \" line in flake.nix." >&2
-    echo "Edit flake.nix yourself before continuing." >&2
-    exit 1
-  fi
   case "$(uname -m)" in
     x86_64) LINUX_SYSTEM=x86_64-linux ;;
     aarch64|arm64) LINUX_SYSTEM=aarch64-linux ;;
@@ -40,8 +39,11 @@ elif [ "$OS" = Linux ]; then
       exit 1
       ;;
   esac
-  # No sudo: standalone home-manager runs entirely as the normal user.
-  exec home-manager switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+  # No sudo: standalone home-manager runs entirely as the normal user, so the
+  # exported DOTFILES_USER reaches nix as-is. --impure is what lets flake.nix
+  # read it (see setup-env.sh).
+  exec home-manager switch --impure \
+    --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
 else
   echo "Unsupported OS: $OS (this repo supports macOS and Ubuntu 22.04 LTS)" >&2
   exit 1

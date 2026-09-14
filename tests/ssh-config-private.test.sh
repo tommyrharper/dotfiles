@@ -53,8 +53,8 @@ assert_not_contains "$(cat "$PUBLIC_DARWIN")" ".colima/ssh_config" \
 if command -v nix >/dev/null 2>&1; then
   activation=$(
     cd "$ROOT" &&
-      nix eval --raw \
-        '.#homeConfigurations."thomasharper@x86_64-linux".config.home.activation.sshIncludeDotfilesFragments.data' \
+      nix eval --impure --raw \
+        ".#homeConfigurations.\"${FLAKE_USER}@x86_64-linux\".config.home.activation.sshIncludeDotfilesFragments.data" \
         2>/dev/null
   ) || fail "could not evaluate the SSH Include activation fragment"
 

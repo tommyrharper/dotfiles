@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
-# Reads the setup profile out of the gitignored root .env and turns it into the
-# flake output suffix bootstrap.sh and rebuild.sh append. Source it, don't run
-# it:
+# Reads this machine's per-machine settings out of the gitignored root .env:
+# the setup profile, which becomes the flake output suffix bootstrap.sh and
+# rebuild.sh append, and the username, which they export for flake.nix's
+# `builtins.getEnv "DOTFILES_USER"`. Source it, don't run it:
 #
 #   . "$DIR/setup-env.sh"
-#   dotfiles_require_setup_env "$DIR"   # sets DOTFILES_SETUP, BLOCKCHAIN_DEV, DOTFILES_FLAKE_SUFFIX
+#   dotfiles_require_setup_env "$DIR"   # sets DOTFILES_SETUP, BLOCKCHAIN_DEV,
+#                                       # DOTFILES_FLAKE_SUFFIX, DOTFILES_USER
 #
-# Why a suffix instead of a value flake.nix reads directly: Nix evaluates this
-# repo as a git tree, so an untracked file never reaches the store and
-# `builtins.readFile ./.env` would fail to find it. flake.nix therefore exposes
-# one output per profile (see its `setups` list) and the choice is made out
-# here, where a plain untracked file is readable.
+# Why read .env out here rather than from flake.nix: Nix evaluates this repo as
+# a git tree, so an untracked file never reaches the store and
+# `builtins.readFile ./.env` would fail to find it. The profile is a closed set,
+# so flake.nix exposes one output per combination (see its `setups` list) and
+# the choice is made here. A username is not a closed set, so it travels as an
+# environment variable instead, and both callers build with --impure.
 
 # Fails - loudly, and without touching anything - unless $1/.env names a valid
 # setup. Both callers gate on this before any install, symlink, or switch: a
 # machine built as the wrong profile is worse than one that refuses to start.
 dotfiles_require_setup_env() {
-  local dir="$1" env_file value blockchain
+  local dir="$1" env_file value blockchain username
 
   env_file="$dir/.env"
   if [ ! -f "$env_file" ]; then
@@ -31,6 +34,11 @@ dotfiles_require_setup_env() {
   # Last assignment wins, the way a shell would resolve it.
   value="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DOTFILES_SETUP=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
   blockchain="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?BLOCKCHAIN_DEV=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
+  # Captured raw, unlike the two above, then validated below: silently
+  # truncating a malformed username at the first odd character would build a
+  # home directory for someone who doesn't exist.
+  username="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DOTFILES_USER=["'\'']?([^"'\''#]*).*/\2/p' "$env_file" | tail -n1)"
+  username="${username%"${username##*[![:space:]]}"}"
 
   case "$value" in
     personal) DOTFILES_FLAKE_SUFFIX="" ;;
@@ -57,7 +65,23 @@ dotfiles_require_setup_env() {
       ;;
   esac
 
+  # Blank means "whoever is logged in", which is the right answer on almost
+  # every machine. Resolve it here, before either caller reaches a sudo call:
+  # sudo resets $USER to root, so the real user has to be read first.
+  if [ -z "$username" ]; then
+    username="$(id -un)"
+  fi
+  case "$username" in
+    *[!A-Za-z0-9._-]*|"")
+      echo "DOTFILES_USER=$username in $env_file is not a usable username." >&2
+      echo "Use letters, digits, dot, underscore or dash, or leave it blank" >&2
+      echo "to use the current login user (see $dir/.env.example)." >&2
+      return 1
+      ;;
+  esac
+
   DOTFILES_SETUP="$value"
   BLOCKCHAIN_DEV="${blockchain:-false}"
-  export DOTFILES_SETUP BLOCKCHAIN_DEV DOTFILES_FLAKE_SUFFIX
+  DOTFILES_USER="$username"
+  export DOTFILES_SETUP BLOCKCHAIN_DEV DOTFILES_FLAKE_SUFFIX DOTFILES_USER
 }
