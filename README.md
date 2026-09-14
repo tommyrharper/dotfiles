@@ -43,7 +43,7 @@ cp .env.example .env
 ./bootstrap.sh
 ```
 
-`bootstrap.sh` reads `DOTFILES_SETUP` and refuses to go further without it, installs Determinate Nix, symlinks the repo to `~/.dotfiles` (the build resolves config files through that path), offers to fix `flake.nix`'s `user` line if it does not match your macOS username, marks the repo safe for root (`darwin-rebuild` runs under `sudo`, so root evaluates this flake's `git+file://` input), then runs the first `darwin-rebuild switch`.
+`bootstrap.sh` reads `DOTFILES_SETUP` and `DOTFILES_USER` and refuses to go further without a valid profile, installs Determinate Nix, symlinks the repo to `~/.dotfiles` (the build resolves config files through that path), marks the repo safe for root (`darwin-rebuild` runs under `sudo`, so root evaluates this flake's `git+file://` input), then runs the first `darwin-rebuild switch`.
 
 After that you are on the normal workflow below.
 
@@ -51,11 +51,13 @@ After that you are on the normal workflow below.
 
 ```sh
 nix flake check --no-build
-nix build .#darwinConfigurations.mac.system --dry-run
+DOTFILES_USER=$(id -un) nix build --impure .#darwinConfigurations.mac.system --dry-run
 ./test.sh
 ```
 
-Substitute your own host label for `mac` if you renamed it. On Ubuntu, build `.#homeConfigurations."<user>@<system>".activationPackage` instead (e.g. `thomasharper@x86_64-linux`).
+Substitute your own host label for `mac` if you renamed it. On Ubuntu, build `.#homeConfigurations."<user>@<system>".activationPackage` instead (e.g. `"$(id -un)@x86_64-linux"`).
+
+`--impure` and `DOTFILES_USER` are needed because the username is not in any tracked file - see "Username" below. `nix flake check` evaluates without them and falls back to the placeholder `dotfiles-user-not-set`.
 
 ## Daily use
 
@@ -101,7 +103,7 @@ Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `ins
 
 This repo is mine. Review these before you run `bootstrap.sh`:
 
-- **Username**: run `./bootstrap.sh` (it detects yours and offers to set it), or change the single `user = "kunchen"` line in `flake.nix`. Everything else threads from that variable.
+- **Username**: nothing to change. It is a per-machine value, not a repo-wide one, so it lives in the gitignored `.env` as `DOTFILES_USER` and is blank by default, meaning "whoever is logged in". Set it only when you are building this config for a different account than the one you run it from.
 - **Host label**: change the single `hostLabel = "mac";` line in `flake.nix`.
 - **CPU architecture**: on macOS set `hostPlatform` in `configuration.nix`; on Ubuntu the scripts map `uname -m` for you.
 
@@ -119,6 +121,12 @@ Every machine picks one profile, and `bootstrap.sh` and `rebuild.sh` both refuse
 It is a flake output per profile rather than a value `flake.nix` reads, because Nix evaluates this repo as a git tree and an untracked file never reaches the store. So `flake.nix` builds every combination (`mac`, `mac-basic`, `mac-blockchain`, `mac-basic-blockchain`, and the same suffixes on `<user>@<system>`), and `setup-env.sh` turns `DOTFILES_SETUP` and `BLOCKCHAIN_DEV` into the suffix or refuses. `tests/setup-env.test.sh` covers the refusals and that every suffix names a real output.
 
 To switch profiles, edit `.env` and run `./rebuild.sh`. Going `personal` -> `basic` on macOS removes the personal casks, because `homebrew.onActivation.cleanup = "zap"` uninstalls anything the config no longer declares.
+
+### Username
+
+`DOTFILES_USER` lives in the same `.env`, and for the same reason: which account a machine builds for is that machine's business, not something a `git pull` should carry around. Leave it blank and `setup-env.sh` uses the login user (`id -un`); set it to build for a different account.
+
+The profile could be a flake output per value because there are only four of them. A username cannot, so `flake.nix` reads `builtins.getEnv "DOTFILES_USER"` instead, and `bootstrap.sh`/`rebuild.sh` export it and pass `--impure`. Evaluating without `--impure` - `nix flake check`, CI - yields the placeholder `dotfiles-user-not-set`, chosen so a switch that forgot the flag builds an obviously wrong `/Users/dotfiles-user-not-set` rather than quietly configuring the wrong person's account.
 
 ### Local and private files
 
@@ -215,11 +223,11 @@ A native installer only actually runs for tools that set `nativeInstallUrl`, `na
 
 The invariant that keeps the two paths aligned: installer selection depends on `currentPlatform`, never on a tool's fields alone. The same `platform=all; updatePolicy=fast` tool is Homebrew-managed on macOS and natively installed on Ubuntu. `hasHomebrew = false` is the one exception, routing a tool with no formula through the native installer on macOS too. `isCask` only picks `homebrew.casks` over `homebrew.brews` for a tool already selected for Homebrew.
 
-`currentPlatform` is not a global constant: `configuration.nix` hardcodes `"macos"`, while each Ubuntu `homeConfigurations."<user>@<system>"` output derives it from `pkgs.stdenv.isDarwin`. The scope toggles, `usePersonalSetup` and `blockchainDev`, come from `.env` rather than a repo edit that would follow you onto every machine.
+`currentPlatform` is not a global constant: `configuration.nix` hardcodes `"macos"`, while each Ubuntu `homeConfigurations."<user>@<system>"` output derives it from `pkgs.stdenv.isDarwin`. The scope toggles, `usePersonalSetup` and `blockchainDev`, come from `.env` rather than a repo edit that would follow you onto every machine, as does the username.
 
 ## Repo tour
 
-- `flake.nix` - the entry point. Wires nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`, and nixpkgs + standalone home-manager for the Linux `homeConfigurations."<user>@<system>"` outputs. Every output is built once per setup profile and `BLOCKCHAIN_DEV` value.
+- `flake.nix` - the entry point. Wires nixpkgs, nix-darwin, home-manager, and nix-homebrew for `darwinConfigurations.mac`, and nixpkgs + standalone home-manager for the Linux `homeConfigurations."<user>@<system>"` outputs. Every output is built once per setup profile and `BLOCKCHAIN_DEV` value, and takes its username from `$DOTFILES_USER` (see "Username").
 - `.env.example` / `setup-env.sh` - the per-machine setup profile and the suffix it maps to.
 - `configuration.nix` - macOS system-level config: system defaults, Homebrew, macOS package selection.
 - `tools.nix` - the per-tool metadata table.

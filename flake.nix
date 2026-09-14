@@ -16,9 +16,24 @@
 
   outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs }:
     let
-      # The one username line to change if this isn't your machine.
-      # bootstrap.sh offers to rewrite this for you if your local username differs.
-      user = "thomasharper";
+      # This machine's username, deliberately not written down in any tracked
+      # file: it is per-machine, like the setup profile, and lives in the
+      # gitignored root .env as DOTFILES_USER (see .env.example). setup-env.sh
+      # reads it - defaulting to the current login user when left blank - and
+      # bootstrap.sh/rebuild.sh export it and build with --impure so the
+      # getEnv below can see it.
+      #
+      # A username is unbounded, so unlike DOTFILES_SETUP it cannot be an
+      # output suffix; and flake.nix cannot read .env directly, because Nix
+      # evaluates this repo as a git tree and untracked files never reach the
+      # store. getEnv plus --impure is what is left.
+      #
+      # The fallback exists only so pure evaluation (`nix flake check`, CI)
+      # still resolves. It is deliberately not a real username: a switch that
+      # forgot --impure builds a home under /Users/dotfiles-user-not-set
+      # rather than silently building for the wrong person.
+      envUser = builtins.getEnv "DOTFILES_USER";
+      user = if envUser != "" then envUser else "dotfiles-user-not-set";
       # The one host label to change if you want to rename the machine.
       # rebuild.sh and bootstrap.sh read this back out of flake.nix, so it
       # only needs to be changed here.

@@ -10,12 +10,14 @@ Every command, alias, and keybinding this dotfiles repo gives you, in one glance
 | `./rebuild.sh` | Apply config changes (the daily command) | Both |
 | `./test.sh` | Run every `tests/*.test.sh`, print pass/fail summary | Both |
 | `nix flake check --no-build` | Validate the flake without applying | Both |
-| `nix build .#darwinConfigurations.mac.system --dry-run` | Dry-run the macOS build (`mac` = `hostLabel` in `flake.nix`) | macOS |
-| `nix build .#homeConfigurations."<user>@<system>".activationPackage --dry-run` | Dry-run the Linux build, e.g. `thomasharper@x86_64-linux` | Linux |
-| `sudo darwin-rebuild switch --flake ~/.dotfiles#mac` | What `rebuild.sh` execs on macOS | macOS |
-| `home-manager switch --flake ~/.dotfiles#<user>@<system>` | What `rebuild.sh` execs on Linux, no sudo | Linux |
+| `nix build --impure .#darwinConfigurations.mac.system --dry-run` | Dry-run the macOS build (`mac` = `hostLabel` in `flake.nix`) | macOS |
+| `nix build --impure .#homeConfigurations."<user>@<system>".activationPackage --dry-run` | Dry-run the Linux build, e.g. `"$(id -un)@x86_64-linux"` | Linux |
+| `sudo env DOTFILES_USER=$(id -un) darwin-rebuild switch --impure --flake ~/.dotfiles#mac` | What `rebuild.sh` execs on macOS | macOS |
+| `home-manager switch --impure --flake ~/.dotfiles#<user>@<system>` | What `rebuild.sh` execs on Linux, no sudo | Linux |
 | `systemctl --user status docker` | Check the rootless Docker daemon `home.nix` runs | Linux |
 | `herdr integration install claude\|codex\|pi` | Agent hooks; `rebuild.sh` already runs this every time | Both |
+
+Manual `nix`/`darwin-rebuild`/`home-manager` invocations need `--impure` and `DOTFILES_USER` in the environment: the username comes from `.env`, not from a tracked file. `./rebuild.sh` and `./bootstrap.sh` do this for you.
 
 ## Shell aliases
 

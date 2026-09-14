@@ -13,6 +13,7 @@ echo "==> Step 0: setup profile from .env"
 . "$DIR/setup-env.sh"
 dotfiles_require_setup_env "$DIR"
 echo "    DOTFILES_SETUP=$DOTFILES_SETUP"
+echo "    DOTFILES_USER=$DOTFILES_USER"
 
 OS="$(uname -s)"
 case "$OS" in
@@ -50,36 +51,8 @@ echo "==> Step 2: symlink this repo to ~/.dotfiles"
 # has to exist before the first switch or the build will fail to find them.
 ln -sfn "$DIR" ~/.dotfiles
 
-echo "==> Step 3: personalize the configured username"
-# Do this before any sudo call (macOS only): sudo resets $USER to root, so
-# whoami has to run as the real interactive user first.
-REAL_USER="$(whoami)"
-FLAKE_USER="$(sed -nE 's/^[[:space:]]*user = "([^"]+)";.*/\1/p' "$DIR/flake.nix" | head -n1)"
-if [ -z "$FLAKE_USER" ]; then
-  echo "    Could not find the single \"user = \" line in flake.nix."
-  echo "    Edit flake.nix yourself before continuing."
-  exit 1
-elif [ "$FLAKE_USER" != "$REAL_USER" ]; then
-  echo "    flake.nix is configured for user \"$FLAKE_USER\", but you are \"$REAL_USER\"."
-  read -r -p "    Rewrite flake.nix's \"user = \" line to \"$REAL_USER\"? [y/N] " REPLY
-  if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
-    if [ "$PLATFORM" = darwin ]; then
-      sed -i '' -E "s/^([[:space:]]*user = \")[^\"]+(\";.*)/\1${REAL_USER}\2/" "$DIR/flake.nix"
-    else
-      sed -i -E "s/^([[:space:]]*user = \")[^\"]+(\";.*)/\1${REAL_USER}\2/" "$DIR/flake.nix"
-    fi
-    FLAKE_USER="$REAL_USER"
-    echo "    Updated. Review the change with: git diff flake.nix"
-  else
-    echo "    Skipped. Edit the single \"user = \" line in flake.nix yourself before continuing."
-    exit 1
-  fi
-else
-  echo "    flake.nix already matches \"$REAL_USER\", nothing to do."
-fi
-
 if [ "$PLATFORM" = darwin ]; then
-  echo "==> Step 4: trust this repo for root"
+  echo "==> Step 3: trust this repo for root"
   # darwin-rebuild always runs via sudo, so root evaluates this flake's
   # git+file:// input. libgit2 refuses to open a repo owned by a different
   # user unless it's allow-listed - add it once, idempotently.
@@ -89,7 +62,7 @@ if [ "$PLATFORM" = darwin ]; then
   sudo git config -f /etc/gitconfig --get-all safe.directory 2>/dev/null | grep -qx "$DIR" \
     || sudo git config -f /etc/gitconfig --add safe.directory "$DIR"
 
-  echo "==> Step 5: first darwin-rebuild switch (pinned to nix-darwin-26.05)"
+  echo "==> Step 4: first darwin-rebuild switch (pinned to nix-darwin-26.05)"
   # darwin-rebuild doesn't exist yet on a fresh machine, so run it straight
   # from the flake this once. After this, rebuild.sh works normally.
   # This fetches the darwin-rebuild tool from the nix-darwin-26.05 release branch,
@@ -105,30 +78,36 @@ if [ "$PLATFORM" = darwin ]; then
     echo "    Edit flake.nix yourself before continuing."
     exit 1
   fi
-  sudo "$NIX_BIN" run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-    switch --flake ~/.dotfiles#"${FLAKE_HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
+  # --impure plus DOTFILES_USER: flake.nix reads the username from the
+  # environment (see setup-env.sh). `sudo env` because sudo's env_reset would
+  # otherwise drop the variable before nix ever evaluates.
+  sudo env DOTFILES_USER="$DOTFILES_USER" \
+    "$NIX_BIN" run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
+    switch --impure --flake ~/.dotfiles#"${FLAKE_HOST_LABEL}${DOTFILES_FLAKE_SUFFIX}"
   # If this still fails with "nix: command not found", open a new terminal
   # (Determinate adds nix to new shells' PATH) and re-run ./bootstrap.sh.
 else
-  echo "==> Step 4: first home-manager switch (pinned to release-26.05)"
+  echo "==> Step 3: first home-manager switch (pinned to release-26.05)"
   # Standalone home-manager runs as the normal user - no root, no sudo, and
   # no /etc/gitconfig trust step (that step exists on macOS only because
   # darwin-rebuild runs as root). home-manager doesn't exist yet on a fresh
   # machine, so run it straight from its own flake this once; after this,
   # rebuild.sh calls the installed `home-manager` command directly.
+  # --impure: flake.nix reads the username out of the exported DOTFILES_USER
+  # (see setup-env.sh). No sudo here, so the export carries through as-is.
   nix run github:nix-community/home-manager/release-26.05 -- \
-    switch --flake ~/.dotfiles#"${FLAKE_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+    switch --impure --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
 
-  echo "==> Step 5: make zsh the login shell"
+  echo "==> Step 4: make zsh the login shell"
   # home.nix configures programs.zsh and nothing else, so on a box that still
   # logs you into /bin/bash none of it is ever sourced: no aliases, and - the
   # one that actually bites - no SSH_AUTH_SOCK, because home-manager's
   # services.ssh-agent module only injects that export into the shells it
   # manages. The systemd ssh-agent runs, but bash can't see it, so every
   # git pull re-prompts for the key passphrase. macOS already logs into zsh,
-  # hence Linux-only. This and step 6 are the only steps here needing sudo.
+  # hence Linux-only. This and step 5 are the only steps here needing sudo.
   ZSH_BIN="$HOME/.nix-profile/bin/zsh"
-  CURRENT_SHELL="$(getent passwd "$REAL_USER" | cut -d: -f7)"
+  CURRENT_SHELL="$(getent passwd "$DOTFILES_USER" | cut -d: -f7)"
   if [ "$CURRENT_SHELL" = "$ZSH_BIN" ]; then
     echo "    already $ZSH_BIN, nothing to do"
   elif ! "$ZSH_BIN" -lc 'exit 0' >/dev/null 2>&1; then
@@ -143,22 +122,22 @@ else
     # as "the whole bootstrap failed".
     if { grep -qxF "$ZSH_BIN" /etc/shells \
            || echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null; } \
-       && sudo chsh -s "$ZSH_BIN" "$REAL_USER"; then
+       && sudo chsh -s "$ZSH_BIN" "$DOTFILES_USER"; then
       echo "    login shell is now $ZSH_BIN - open a new SSH session to pick it up"
     else
       echo "    WARNING: could not set the login shell - this step needs sudo." >&2
       echo "    Until you run the following, SSH_AUTH_SOCK never reaches your shell" >&2
       echo "    and every git pull will re-prompt for your key passphrase:" >&2
-      echo "      echo $ZSH_BIN | sudo tee -a /etc/shells && sudo chsh -s $ZSH_BIN $REAL_USER" >&2
+      echo "      echo $ZSH_BIN | sudo tee -a /etc/shells && sudo chsh -s $ZSH_BIN $DOTFILES_USER" >&2
     fi
   fi
 
-  echo "==> Step 6: uidmap, for the rootless Docker daemon home.nix runs"
+  echo "==> Step 5: uidmap, for the rootless Docker daemon home.nix runs"
   # home.nix runs dockerd-rootless as a systemd --user service. Everything it
   # needs comes from pkgs.docker except setuid newuidmap/newgidmap:
   # rootlesskit execs them by name to apply this user's /etc/subuid range,
   # and a Nix store binary can never be setuid, so this one package has to
-  # come from apt as root. Fault-isolated like step 5 - a box without sudo
+  # come from apt as root. Fault-isolated like step 4 - a box without sudo
   # should get the command to run by hand, not a failed bootstrap.
   if command -v newuidmap >/dev/null 2>&1; then
     echo "    newuidmap already present, nothing to do"

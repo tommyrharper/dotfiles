@@ -31,8 +31,8 @@ trap cleanup_private_env EXIT
 mkdir -p "$TEST_HOME" "$ZDOTDIR" "$PRIVATE_DIR"
 
 render_zshrc() {
-  nix eval --raw \
-    "$ROOT#darwinConfigurations.mac.config.home-manager.users.thomasharper.programs.zsh.initContent" \
+  nix eval --impure --raw \
+    "$ROOT#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.programs.zsh.initContent" \
     >"$ZDOTDIR/.zshrc"
 }
 
@@ -49,7 +49,7 @@ fi
 printf 'export HETZNER_HOST="%s"\n' "$PLACEHOLDER_HOST" >"$PRIVATE_FILE"
 render_zshrc
 actual=$(print_alias) || fail "hetzner alias missing when private env file is present"
-assert_contains "$actual" "ssh thomasharper@$PLACEHOLDER_HOST" "hetzner alias does not use the private host value"
+assert_contains "$actual" "ssh ${FLAKE_USER}@$PLACEHOLDER_HOST" "hetzner alias does not use the private host value"
 
 if git -C "$ROOT" ls-files --error-unmatch home/.config/zsh/private-env.zsh >/dev/null 2>&1; then
   fail "private zsh env file is tracked"
