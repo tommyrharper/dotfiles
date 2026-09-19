@@ -110,7 +110,10 @@ set -u
 # whoever the repo owner is. Nothing about the macOS config itself changed -
 # rebuilding this same tree with DOTFILES_USER set to the old literal still
 # produced the previous pin, g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh.
-EXPECTED_DARWIN_DRVPATH="/nix/store/8bc4frb2c90rz5wycxm91ra68v3q3vfs-darwin-system-26.05.adda04f.drv"
+# Re-pin again after adding the clear-buffer zsh widget (WezTerm Ctrl+Shift+K):
+# it lives in programs.zsh.initContent, shared by both platforms on purpose -
+# the binding must work in every pane, local or ssh, like the word-nav ones.
+EXPECTED_DARWIN_DRVPATH="/nix/store/vxr9mli7pbz3yx6mrrph0zmgn261hf9v-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then

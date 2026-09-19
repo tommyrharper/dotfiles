@@ -78,6 +78,10 @@ config.keys = {
   { key = "j", mods = "OPT", action = act.SendString("\x1b[B") },
   { key = "k", mods = "OPT", action = act.SendString("\x1b[A") },
   { key = "l", mods = "OPT", action = act.SendString("\x1b[C") },
+  -- Ctrl+Shift+K clears the shell input line without touching the kill ring:
+  -- sends CSI-u ctrl+shift+k, bound in home.nix to clear-buffer. Replaces the
+  -- default ClearScrollback on this key.
+  { key = "K", mods = "CTRL|SHIFT", action = act.SendString("\x1b[107;6u") },
   -- Option+Left/Right send Esc-b / Esc-f, the readline word-nav sequences.
   -- Without this macOS Option composes a character instead, which Herdr
   -- misreads as a prompt-indicator toggle and leaves the terminal wedged.
