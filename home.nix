@@ -192,6 +192,8 @@ in
       zle -N ai-fill-buffer
       bindkey '^G' ai-fill-buffer
 
+      # WezTerm Ctrl+Shift+K sends CSI-u ctrl+shift+k (wezterm.lua). Clear the
+      # input line without copying it to the kill ring, unlike Ctrl-U.
       clear-buffer() { BUFFER=""; }
       zle -N clear-buffer
       bindkey '^[[107;6u' clear-buffer

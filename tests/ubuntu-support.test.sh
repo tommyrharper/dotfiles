@@ -110,7 +110,7 @@ set -u
 # whoever the repo owner is. Nothing about the macOS config itself changed -
 # rebuilding this same tree with DOTFILES_USER set to the old literal still
 # produced the previous pin, g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh.
-EXPECTED_DARWIN_DRVPATH="/nix/store/2a1g6c3s0cfr8wchxiinlzyxm4hsn95n-darwin-system-26.05.adda04f.drv"
+EXPECTED_DARWIN_DRVPATH="/nix/store/vxr9mli7pbz3yx6mrrph0zmgn261hf9v-darwin-system-26.05.adda04f.drv"
 
 test_darwin_drvpath_unchanged() {
   if ! command -v nix >/dev/null 2>&1; then
