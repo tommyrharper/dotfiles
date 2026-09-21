@@ -13,7 +13,7 @@ let
   # currentPlatform for ./tool-selection.nix: "macos" here always resolves
   # to the exact same value configuration.nix hardcodes, so this branch is
   # provably a no-op on Darwin (see the drvPath-diff test in tests/).
-  currentPlatform = if isDarwin then "macos" else "ubuntu";
+  currentPlatform = if isDarwin then "macos" else if csd3 then "csd3" else "ubuntu";
   sel = import ./tool-selection.nix { inherit lib usePersonalSetup blockchainDev currentPlatform; };
   # nix-darwin's own environment.systemPackages already installs the macOS
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no

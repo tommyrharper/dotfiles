@@ -11,6 +11,17 @@
 let
   tools = import ./tools.nix;
 
+  # CSD3 (the csd3 branch) is a third platform. `platform` may be a list of
+  # "macos" / "ubuntu" / "csd3"; the plain strings keep main's meaning, with
+  # "ubuntu" meaning Linux, so entries merged from main apply to CSD3 as-is.
+  platformsOf = t:
+    if builtins.isList t.platform then t.platform
+    else if t.platform == "all" then [ "macos" "ubuntu" "csd3" ]
+    else if t.platform == "ubuntu" then [ "ubuntu" "csd3" ]
+    else [ t.platform ];
+  macOnly = t: platformsOf t == [ "macos" ];
+  isLinux = currentPlatform != "macos";
+
   # Decision 1: is the tool wanted on this machine's setup at all?
   isEnabled = t:
     t.scope == "basic"
@@ -19,14 +30,14 @@ let
 
   # Decision 2: does the tool apply to the OS we're installing onto?
   isForCurrentPlatform = t:
-    t.platform == "all" || t.platform == currentPlatform;
+    builtins.elem currentPlatform (platformsOf t);
 
   # Decision 3a: on any OS, a stable "all" package is Nix-managed - it is
   # never macOS/Ubuntu-specific, so nix.enable=false aside, Nix owns it.
   useNix = t:
     isForCurrentPlatform t
     && t.updatePolicy == "stable"
-    && t.platform != "macos";
+    && !(macOnly t);
 
   # Does this tool actually have a Homebrew formula/cask to install? Every
   # entry defaults to true; no-mistakes is the first to set it false (no
@@ -43,7 +54,7 @@ let
   useHomebrew = t:
     currentPlatform == "macos"
     && isForCurrentPlatform t
-    && (t.platform == "macos" || t.updatePolicy == "fast")
+    && (macOnly t || t.updatePolicy == "fast")
     && hasHomebrew t;
 
   # Decision 3c: fast-moving tools use a native installer instead of Homebrew
@@ -53,7 +64,7 @@ let
   useNative = t:
     isForCurrentPlatform t
     && t.updatePolicy == "fast"
-    && (currentPlatform == "ubuntu"
+    && (isLinux
         || (currentPlatform == "macos" && !hasHomebrew t));
 
   isCaskTool = t: t.isCask or false;

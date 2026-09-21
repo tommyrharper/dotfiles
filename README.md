@@ -210,7 +210,7 @@ programs.git = {
 | Property       | Question                                          | Values                     |
 | -------------- | ------------------------------------------------- | -------------------------- |
 | `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal` / `blockchain` |
-| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu` |
+| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu`, or a list of `macos` / `ubuntu` / `csd3` (`ubuntu` alone includes `csd3`) |
 | `updatePolicy` | Do I want the latest upstream version quickly?    | `stable` / `fast`          |
 | `isCask`       | If installed through Homebrew, is it a cask?      | `true` / omitted           |
 | `hasHomebrew`  | Does this tool have a real Homebrew formula/cask? | `true` (default) / `false` |

@@ -66,7 +66,8 @@
   # npm package named "treehouse" is an unrelated React state library, not
   # this tool. Not a plain nixName entry either - nixpkgs has no treehouse
   # attribute (verified with builtins.hasAttr against this flake's nixpkgs).
-  { name = "treehouse"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
+  # Not csd3: its prebuilt binary needs glibc 2.34; CSD3's Rocky 8 has 2.28.
+  { name = "treehouse"; scope = "basic"; platform = [ "macos" "ubuntu" ]; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
   { name = "spec-kit"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUvTool = "specify-cli"; nativeInstallBinName = "specify"; hasHomebrew = false; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
