@@ -42,6 +42,14 @@ elif [ "$OS" = Linux ]; then
   # No sudo: standalone home-manager runs entirely as the normal user, so the
   # exported DOTFILES_USER reaches nix as-is. --impure is what lets flake.nix
   # read it (see setup-env.sh).
+  if [ "$DOTFILES_SETUP" = csd3 ]; then
+    # No home-manager on the host's PATH there: it runs inside nix-portable.
+    # shellcheck source=csd3/nix-portable.sh
+    . "$DIR/csd3/nix-portable.sh"
+    dotfiles_csd3_home_manager "$DIR" switch --impure \
+      --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+    exit
+  fi
   exec home-manager switch --impure \
     --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
 else

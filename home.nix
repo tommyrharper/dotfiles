@@ -1,4 +1,4 @@
-{ config, pkgs, lib, user, usePersonalSetup, blockchainDev, ... }:
+{ config, pkgs, lib, user, usePersonalSetup, blockchainDev, csd3, ... }:
 
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
@@ -34,8 +34,13 @@ in
     jq        # json on the command line
     lazygit
     neovim
+  ]
+  # Not on CSD3 (csd3 = true, flake.nix): no rootless Docker without subuids
+  # or a systemd user instance to run it; jobs there use Apptainer instead.
+  ++ lib.optionals (!csd3) [
     docker
     docker-compose
+  ] ++ [
     # nvim-treesitter (main) needs the CLI; brew's tree-sitter is library-only
     tree-sitter
     # the font everything renders in
@@ -62,8 +67,11 @@ in
   # macOS except for the rare tool with no Homebrew formula at all
   # (hasHomebrew = false in tools.nix, e.g. no-mistakes) - everything else
   # stays Homebrew-managed there, per tool-selection.nix's useNative.
+  # Not on CSD3: its interactive tools are the Nix ones, run inside
+  # nix-portable's namespace, and a login node is no place for a dozen
+  # curl | sh installers landing on the host's PATH.
   home.activation.installNativeTools =
-    lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.concatMapStrings (t: ''
+    lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.optionalString (!csd3) (lib.concatMapStrings (t: ''
       if [ ! -x "$HOME/.local/bin/${sel.nativeInstallBinName t}" ]; then
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
           ${if t.nativeInstallUrl or null != null then
@@ -130,7 +138,7 @@ in
           ) || echo "WARNING: native install of ${t.name} failed (exit $?) - continuing with remaining tools" >&2
         fi
       fi
-    '') sel.nativeInstallTools);
+    '') sel.nativeInstallTools));
   # So a native-installed binary (herdr on Ubuntu, no-mistakes on both
   # platforms - placed in ~/.local/bin by its own installer, above) is
   # actually reachable after a shell restart.
@@ -147,7 +155,9 @@ in
     # $XDG_RUNTIME_DIR/docker.sock, not /var/run/docker.sock, and the CLI does
     # not look there by itself. `$(id -u)` is expanded when hm-session-vars.sh
     # is sourced, so it stays correct for whichever uid the shell runs as.
+  } // lib.optionalAttrs (!isDarwin && !csd3) {
     DOCKER_HOST = "unix:///run/user/$(id -u)/docker.sock";
+  } // lib.optionalAttrs (!isDarwin) {
     # Same prefix installNativeTools uses above, but exported into every
     # shell so an interactive `npm root -g` / `npm install -g` agrees with
     # where the npm-backed tools actually live. Without it npm resolves the
@@ -296,8 +306,11 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/nvim";
   home.file.".config/herdr".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
-  home.file.".claude/settings.json".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.claude/settings.json";
+  # Not on CSD3: Claude Code there writes its own settings.json (which
+  # home-manager would refuse to clobber), and the hooks here run macOS paths.
+  home.file.".claude/settings.json" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.claude/settings.json";
+  };
 
   # Keep Pi's credential and runtime state local by linking only authored files and directories.
   home.file.".pi/agent/themes".source =
@@ -327,7 +340,9 @@ in
   # programs.zsh automatically. macOS is unaffected (isDarwin = true there):
   # it already gets a persistent agent for free via launchd + Keychain
   # (UseKeychain above), so this would just add a redundant agent process.
-  services.ssh-agent.enable = !isDarwin;
+  # Not on CSD3 either: its unit would run a /nix/store binary that exists
+  # only inside nix-portable's namespace, not for systemd.
+  services.ssh-agent.enable = !isDarwin && !csd3;
 
   # Linux-only: without lingering, systemd-logind stops the user's systemd
   # --user instance (and every unit in it, including ssh-agent above) as
@@ -339,7 +354,7 @@ in
   # immediately for the current user (no sudo, no reboot, no re-login) and
   # is idempotent to rerun.
   home.activation.enableSshAgentLinger = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-    if isDarwin then
+    if isDarwin || csd3 then
       ""
     else
       ''
@@ -371,7 +386,7 @@ in
   # on both (see above) - a no-op ordering on macOS today since herdr itself
   # never goes through installNativeTools there, but keeps the two activation
   # scripts in one consistent, deterministic order everywhere.
-  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] ''
+  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] (lib.optionalString (!csd3) ''
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     if command -v herdr >/dev/null 2>&1; then
       for target in claude codex pi; do
@@ -381,7 +396,7 @@ in
     else
       echo "WARNING: herdr not found on PATH - skipping agent integration install" >&2
     fi
-  '';
+  '');
 
   # Linux-only: Docker as a rootless systemd --user daemon. `pkgs.docker`
   # (home.packages above) ships dockerd-rootless plus the rootlesskit,
@@ -393,7 +408,7 @@ in
   # dies with "newuidmap: executable file not found in $PATH". Lingering is
   # enabled above, which is also what keeps this daemon alive between SSH
   # sessions. macOS gets Docker from Colima (tools.nix), not from here.
-  systemd.user.services.docker = lib.mkIf (!isDarwin) {
+  systemd.user.services.docker = lib.mkIf (!isDarwin && !csd3) {
     Unit.Description = "Rootless Docker daemon";
     Service = {
       ExecStart = "${pkgs.docker}/bin/dockerd-rootless";
@@ -413,18 +428,24 @@ in
   # committed, per-platform dotfiles.config.public.{darwin,linux}; per-host
   # secrets live in the gitignored dotfiles.config.private (copy from
   # dotfiles.config.private.example) - see README.md "SSH config".
-  home.file.".ssh/dotfiles.config.public".source =
-    config.lib.file.mkOutOfStoreSymlink
+  #
+  # Not on CSD3: its umask is 002, so these group-writable fragments make ssh
+  # refuse the whole ~/.ssh/config ("Bad owner or permissions"), and the
+  # Linux one names an id_rsa the account does not use.
+  home.file.".ssh/dotfiles.config.public" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink
       "${dotfiles}/home/.ssh/dotfiles.config.public.${if isDarwin then "darwin" else "linux"}";
-  home.file.".ssh/dotfiles.config.private".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.ssh/dotfiles.config.private";
+  };
+  home.file.".ssh/dotfiles.config.private" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.ssh/dotfiles.config.private";
+  };
 
   # Prepend Include lines for the two fragments above into ~/.ssh/config if
   # they aren't already there, so a fresh machine gets them wired in on the
   # first rebuild with no manual paste. Prepended (not appended) so dotfiles
   # defaults load first and Colima/other tools can keep appending to the
   # bottom of the file untouched. Never touches existing content otherwise.
-  home.activation.sshIncludeDotfilesFragments = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.sshIncludeDotfilesFragments = lib.mkIf (!csd3) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     ssh_dir="$HOME/.ssh"
     ssh_config="$ssh_dir/config"
 
@@ -455,5 +476,5 @@ in
         mv $VERBOSE_ARG "$tmp" "$ssh_config"
       fi
     done
-  '';
+  '');
 }

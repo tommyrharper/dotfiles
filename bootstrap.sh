@@ -36,6 +36,37 @@ if [ "$PLATFORM" = linux ]; then
   esac
 fi
 
+if [ "$DOTFILES_SETUP" = csd3 ]; then
+  # Cambridge's CSD3: no root, so none of the steps below can run there -
+  # no Determinate Nix, no chsh, no apt. Nix is nix-portable with its store
+  # in ~, entered from interactive login shells only (csd3/nix-portable.sh).
+  [ "$PLATFORM" = linux ] || { echo "DOTFILES_SETUP=csd3 is for the CSD3 cluster (Linux) only" >&2; exit 1; }
+  # shellcheck source=csd3/nix-portable.sh
+  . "$DIR/csd3/nix-portable.sh"
+  echo "==> Step 1: nix-portable (no root for Determinate Nix here)"
+  dotfiles_csd3_install_np
+  echo "==> Step 2: symlink this repo to ~/.dotfiles"
+  ln -sfn "$DIR" ~/.dotfiles
+  echo "==> Step 3: first home-manager switch, inside nix-portable"
+  # -b: files the account already had (a ~/.zshrc, say) are kept beside the
+  # links as *.before-home-manager instead of failing the switch.
+  dotfiles_csd3_home_manager "$DIR" switch -b before-home-manager --impure \
+    --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+  echo "==> Step 4: enter the Nix zsh from ~/.bashrc"
+  # Not chsh: that needs sudo, and the profile's zsh only exists inside
+  # nix-portable's namespace. ~/.bashrc starts it for interactive shells.
+  CSD3_HOOK='[ -f ~/.dotfiles/csd3/nix-portable.sh ] && . ~/.dotfiles/csd3/nix-portable.sh && dotfiles_csd3_login'
+  if grep -qxF "$CSD3_HOOK" ~/.bashrc 2>/dev/null; then
+    echo "    already in ~/.bashrc, nothing to do"
+  else
+    printf '\n# dotfiles (DOTFILES_SETUP=csd3): interactive login-node shells enter the Nix zsh\n%s\n' \
+      "$CSD3_HOOK" >>~/.bashrc
+    echo "    added to ~/.bashrc - open a new SSH session to pick it up (touch ~/.no-nix-shell to skip)"
+  fi
+  echo "==> Done. Use ./rebuild.sh for future changes."
+  exit 0
+fi
+
 echo "==> Step 1: Determinate Nix"
 if command -v nix >/dev/null 2>&1; then
   echo "    nix already installed, skipping"
