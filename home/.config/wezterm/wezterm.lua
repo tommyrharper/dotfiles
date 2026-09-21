@@ -50,6 +50,27 @@ config.keys = {
       pane:move_to_new_window()
     end),
   },
+  -- Undo break-pane: merge this pane into the first other window as a new tab.
+  -- No Lua API for cross-window pane moves, so shell out to the wezterm CLI;
+  -- absolute path because the GUI app's PATH may not include it.
+  {
+    key = "m",
+    mods = "LEADER",
+    action = wezterm.action_callback(function(win, pane)
+      for _, other in ipairs(wezterm.mux.all_windows()) do
+        if other:window_id() ~= win:window_id() then
+          os.execute(
+            wezterm.executable_dir
+              .. "/wezterm cli move-pane-to-new-tab --pane-id "
+              .. pane:pane_id()
+              .. " --window-id "
+              .. other:window_id()
+          )
+          return
+        end
+      end
+    end),
+  },
   {
     key = "T",
     mods = "LEADER|SHIFT",
