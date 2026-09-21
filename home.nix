@@ -67,11 +67,8 @@ in
   # macOS except for the rare tool with no Homebrew formula at all
   # (hasHomebrew = false in tools.nix, e.g. no-mistakes) - everything else
   # stays Homebrew-managed there, per tool-selection.nix's useNative.
-  # Not on CSD3: its interactive tools are the Nix ones, run inside
-  # nix-portable's namespace, and a login node is no place for a dozen
-  # curl | sh installers landing on the host's PATH.
   home.activation.installNativeTools =
-    lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.optionalString (!csd3) (lib.concatMapStrings (t: ''
+    lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.concatMapStrings (t: ''
       if [ ! -x "$HOME/.local/bin/${sel.nativeInstallBinName t}" ]; then
         if [ -n "''${DRY_RUN_CMD:-}" ]; then
           ${if t.nativeInstallUrl or null != null then
@@ -138,7 +135,7 @@ in
           ) || echo "WARNING: native install of ${t.name} failed (exit $?) - continuing with remaining tools" >&2
         fi
       fi
-    '') sel.nativeInstallTools));
+    '') sel.nativeInstallTools);
   # So a native-installed binary (herdr on Ubuntu, no-mistakes on both
   # platforms - placed in ~/.local/bin by its own installer, above) is
   # actually reachable after a shell restart.
@@ -389,7 +386,7 @@ in
   # on both (see above) - a no-op ordering on macOS today since herdr itself
   # never goes through installNativeTools there, but keeps the two activation
   # scripts in one consistent, deterministic order everywhere.
-  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] (lib.optionalString (!csd3) ''
+  home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] ''
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     if command -v herdr >/dev/null 2>&1; then
       for target in claude codex pi; do
@@ -399,7 +396,7 @@ in
     else
       echo "WARNING: herdr not found on PATH - skipping agent integration install" >&2
     fi
-  '');
+  '';
 
   # Linux-only: Docker as a rootless systemd --user daemon. `pkgs.docker`
   # (home.packages above) ships dockerd-rootless plus the rootlesskit,

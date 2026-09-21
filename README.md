@@ -132,7 +132,7 @@ What `csd3` leaves out, and why: Docker and home-manager's ssh-agent (systemd
 user units that would run store paths systemd cannot see); the SSH config fragments
 (CSD3's umask 002 makes them group-writable, and ssh then refuses all of
 `~/.ssh/config`); the `~/.claude/settings.json` link (Claude Code writes its
-own there); and the native `curl | sh` installers. The first switch runs with
+own there). The first switch runs with
 `-b before-home-manager`, keeping any file it would replace. Builds run
 with Nix's sandbox off (`sandbox = false`), which nesting inside bwrap
 requires.
