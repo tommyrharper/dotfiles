@@ -234,6 +234,11 @@ in
     '' + lib.optionalString csd3 ''
       # CSD3's `module` is a bash function, which zsh cannot inherit.
       [ -r /usr/share/Modules/init/zsh ] && . /usr/share/Modules/init/zsh
+      # That init also exports FPATH with its root-owned completion dir, so a
+      # child zsh (a herdr pane) would compinit with it on fpath, which
+      # compaudit cannot vet inside nix-portable ("compaudit:142: unknown
+      # group"). Every zsh runs the line above itself; nothing needs to inherit it.
+      typeset +x FPATH
     '';
     shellAliases = {
       ".." = "cd ..";
