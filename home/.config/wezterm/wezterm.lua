@@ -43,44 +43,31 @@ config.keys = {
   { key = "j", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Down") },
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
   -- Pull the current pane out into its own window (tmux break-pane).
-  -- Remembers the origin window so Leader+m can send it back.
   {
     key = "n",
     mods = "LEADER",
     action = wezterm.action_callback(function(win, pane)
-      wezterm.GLOBAL["origin_window_" .. pane:pane_id()] = win:window_id()
       pane:move_to_new_window()
     end),
   },
-  -- Undo break-pane: merge this pane back into the window Leader+n took it
-  -- from, or the first other window if the origin is gone or unknown.
+  -- Undo break-pane: merge this pane into the first other window as a new tab.
   -- No Lua API for cross-window pane moves, so shell out to the wezterm CLI;
   -- absolute path because the GUI app's PATH may not include it.
   {
     key = "m",
     mods = "LEADER",
     action = wezterm.action_callback(function(win, pane)
-      local origin_key = "origin_window_" .. pane:pane_id()
-      local origin_id = wezterm.GLOBAL[origin_key]
-      local target
       for _, other in ipairs(wezterm.mux.all_windows()) do
         if other:window_id() ~= win:window_id() then
-          if other:window_id() == origin_id then
-            target = other
-            break
-          end
-          target = target or other
+          os.execute(
+            wezterm.executable_dir
+              .. "/wezterm cli move-pane-to-new-tab --pane-id "
+              .. pane:pane_id()
+              .. " --window-id "
+              .. other:window_id()
+          )
+          return
         end
-      end
-      if target then
-        wezterm.GLOBAL[origin_key] = nil
-        os.execute(
-          wezterm.executable_dir
-            .. "/wezterm cli move-pane-to-new-tab --pane-id "
-            .. pane:pane_id()
-            .. " --window-id "
-            .. target:window_id()
-        )
       end
     end),
   },
