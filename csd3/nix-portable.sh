@@ -49,6 +49,9 @@ dotfiles_csd3_install_np() {
 dotfiles_csd3_home_manager() {
   local dir="$1"
   shift
+  # home-manager needs a profiles directory to exist, which a Determinate
+  # install makes and nix-portable does not.
+  mkdir -p "$HOME/.local/state/nix/profiles"
   dotfiles_csd3_np nix run --inputs-from "$dir" home-manager -- "$@"
 }
 
