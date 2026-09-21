@@ -124,8 +124,12 @@ bash. Jobs get their tools from modules, containers and `hpc-work` instead
 (ri-reproducibility's `scripts/lib/job-env.sh` checks that nothing a job runs
 resolves into `/home` or a Nix store).
 
-What `csd3` leaves out, and why: Docker and ssh-agent (systemd user units
-that would run store paths systemd cannot see); the SSH config fragments
+Login shells share one ssh-agent per login node (`/tmp/ssh-agent-$USER`);
+with `AddKeysToAgent yes` in `~/.ssh/config` the passphrase is asked once per
+node, on first use.
+
+What `csd3` leaves out, and why: Docker and home-manager's ssh-agent (systemd
+user units that would run store paths systemd cannot see); the SSH config fragments
 (CSD3's umask 002 makes them group-writable, and ssh then refuses all of
 `~/.ssh/config`); the `~/.claude/settings.json` link (Claude Code writes its
 own there); and the native `curl | sh` installers. The first switch runs with

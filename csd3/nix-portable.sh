@@ -98,6 +98,32 @@ dotfiles_csd3_shell() {
   ( unset FPATH; DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@" )
 }
 
+# One ssh-agent per login node, at a fixed socket, reused by every shell there:
+# a key added once (AddKeysToAgent in ~/.ssh/config, or ssh-add) stays until
+# the node reboots. A forwarded agent (ssh -A) is left alone.
+dotfiles_csd3_ssh_agent() {
+  dotfiles_csd3_in_job && return 0
+  if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "$SSH_AUTH_SOCK" ]; then
+    ssh-add -l >/dev/null 2>&1
+    [ $? -ne 2 ] && return 0
+  fi
+  local dir
+  dir="/tmp/ssh-agent-$(id -un)"
+  if [ ! -d "$dir" ]; then
+    mkdir -m 700 "$dir" || return 1
+  fi
+  if [ -L "$dir" ] || [ ! -O "$dir" ]; then
+    echo "dotfiles: $dir is not a directory of yours; not starting an ssh-agent" >&2
+    return 1
+  fi
+  export SSH_AUTH_SOCK="$dir/agent.sock"
+  ssh-add -l >/dev/null 2>&1
+  if [ $? -eq 2 ]; then
+    rm -f "$SSH_AUTH_SOCK"
+    ssh-agent -a "$SSH_AUTH_SOCK" >/dev/null
+  fi
+}
+
 # From ~/.bashrc: an interactive shell on a login node becomes the Nix zsh.
 # Never in a Slurm job (sintr included), never twice, never for scp/sftp or
 # `ssh host cmd` (not interactive), and not at all while ~/.no-nix-shell
@@ -106,6 +132,7 @@ dotfiles_csd3_shell() {
 dotfiles_csd3_login() {
   case $- in *i*) ;; *) return 0 ;; esac
   dotfiles_csd3_in_job && return 0
+  dotfiles_csd3_ssh_agent
   [ -n "${DOTFILES_CSD3_INSIDE:-}" ] && return 0
   [ -e "$HOME/.no-nix-shell" ] && return 0
   [ -x "$DOTFILES_CSD3_NP" ] || return 0

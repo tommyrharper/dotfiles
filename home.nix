@@ -234,6 +234,9 @@ in
       if [[ -n "''${HETZNER_HOST:-}" ]]; then
         alias hetzner="ssh ${user}@$HETZNER_HOST"
       fi
+    '' + lib.optionalString csd3 ''
+      # CSD3's `module` is a bash function, which zsh cannot inherit.
+      [ -r /usr/share/Modules/init/zsh ] && . /usr/share/Modules/init/zsh
     '';
     shellAliases = {
       ".." = "cd ..";
