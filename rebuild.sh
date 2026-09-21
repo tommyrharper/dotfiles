@@ -46,8 +46,10 @@ elif [ "$OS" = Linux ]; then
     # No home-manager on the host's PATH there: it runs inside nix-portable.
     # shellcheck source=csd3/nix-portable.sh
     . "$DIR/csd3/nix-portable.sh"
+    # "$DIR", not ~/.dotfiles: nix-portable's Nix (2.20) refuses a flake
+    # reached through a symlink ("not a directory").
     dotfiles_csd3_home_manager "$DIR" switch --impure \
-      --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+      --flake "$DIR#${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
     exit
   fi
   exec home-manager switch --impure \

@@ -52,7 +52,25 @@ dotfiles_csd3_home_manager() {
   # home-manager needs a profiles directory to exist, which a Determinate
   # install makes and nix-portable does not.
   mkdir -p "$HOME/.local/state/nix/profiles"
-  dotfiles_csd3_np nix run --inputs-from "$dir" home-manager -- "$@"
+  # home-manager shells out to `nix`, which inside the namespace is on no
+  # PATH: give it nix-portable's own, the exact version whose store this is
+  # (a newer Nix, like the one in the profile, could migrate the store's
+  # database past what nix-portable can read). Put on PATH, not in `nix
+  # shell`: that store path is unpacked but not registered, and realising
+  # it means replacing libraries the running nix has open, which NFS
+  # refuses ("Directory not empty").
+  local version np_nix
+  version="$(dotfiles_csd3_np nix --version)" || return
+  version="${version##* }"
+  for np_nix in "${NP_LOCATION:-$HOME}"/.nix-portable/nix/store/*-nix-"$version"; do
+    [ -x "$np_nix/bin/nix" ] && break
+  done
+  [ -x "$np_nix/bin/nix" ] \
+    || { echo "dotfiles: cannot find nix-portable's own nix $version in its store" >&2; return 1; }
+  # shellcheck disable=SC2016  # expanded by the bash inside the namespace
+  dotfiles_csd3_np nix shell --inputs-from "$dir" home-manager \
+    -c /bin/bash -c 'PATH="$PATH:$1"; shift; exec home-manager "$@"' home-manager \
+    "/nix/store/${np_nix##*/}/bin" "$@"
 }
 
 # The store path ~/.nix-profile ends at, read link by link: readlink -f

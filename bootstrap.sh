@@ -50,8 +50,10 @@ if [ "$DOTFILES_SETUP" = csd3 ]; then
   echo "==> Step 3: first home-manager switch, inside nix-portable"
   # -b: files the account already had (a ~/.zshrc, say) are kept beside the
   # links as *.before-home-manager instead of failing the switch.
+  # "$DIR", not ~/.dotfiles: nix-portable's Nix (2.20) refuses a flake
+  # reached through a symlink ("not a directory").
   dotfiles_csd3_home_manager "$DIR" switch -b before-home-manager --impure \
-    --flake ~/.dotfiles#"${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
+    --flake "$DIR#${DOTFILES_USER}@${LINUX_SYSTEM}${DOTFILES_FLAKE_SUFFIX}"
   echo "==> Step 4: enter the Nix zsh from ~/.bashrc"
   # Not chsh: that needs sudo, and the profile's zsh only exists inside
   # nix-portable's namespace. ~/.bashrc starts it for interactive shells.
