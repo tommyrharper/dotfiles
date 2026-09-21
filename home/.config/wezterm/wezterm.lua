@@ -42,6 +42,14 @@ config.keys = {
   { key = "k", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Up") },
   { key = "j", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Down") },
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
+  -- Pull the current pane out into its own window (tmux break-pane).
+  {
+    key = "n",
+    mods = "LEADER",
+    action = wezterm.action_callback(function(win, pane)
+      pane:move_to_new_window()
+    end),
+  },
   {
     key = "T",
     mods = "LEADER|SHIFT",
