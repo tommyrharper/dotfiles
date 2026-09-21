@@ -93,7 +93,9 @@ dotfiles_csd3_shell() {
   local profile
   profile="$(dotfiles_csd3_profile)" \
     || { echo "dotfiles: no home-manager profile yet - run ~/.dotfiles/bootstrap.sh" >&2; return 1; }
-  DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@"
+  # CSD3's cuda module exports FPATH (a Fortran include path); zsh would take
+  # it as its function path and lose compinit, is-at-least, add-zsh-hook.
+  ( unset FPATH; DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@" )
 }
 
 # From ~/.bashrc: an interactive shell on a login node becomes the Nix zsh.
