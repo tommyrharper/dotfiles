@@ -304,8 +304,15 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/wezterm";
   home.file.".config/nvim".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/nvim";
-  home.file.".config/herdr".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
+  home.file.".config/herdr" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
+  };
+  # CSD3: a direct link, not one through /nix/store, which exists only inside
+  # nix-portable - herdr --remote runs herdr outside it and must see the sessions.
+  home.activation.csd3HerdrConfigLink = lib.mkIf csd3 (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    $DRY_RUN_CMD mkdir -p "$HOME/.config"
+    $DRY_RUN_CMD ln -sfn "${dotfiles}/home/.config/herdr" "$HOME/.config/herdr"
+  '');
   # Not on CSD3: Claude Code there writes its own settings.json (which
   # home-manager would refuse to clobber), and the hooks here run macOS paths.
   home.file.".claude/settings.json" = lib.mkIf (!csd3) {

@@ -95,7 +95,9 @@ dotfiles_csd3_shell() {
     || { echo "dotfiles: no home-manager profile yet - run ~/.dotfiles/bootstrap.sh" >&2; return 1; }
   # CSD3's cuda module exports FPATH (a Fortran include path); zsh would take
   # it as its function path and lose compinit, is-at-least, add-zsh-hook.
-  ( unset FPATH; DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@" )
+  # SHELL: the account's is bash (no chsh here), and herdr panes open $SHELL.
+  ( unset FPATH; export SHELL="$HOME/.nix-profile/bin/zsh"
+    DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@" )
 }
 
 # One ssh-agent per login node, at a fixed socket, reused by every shell there:
