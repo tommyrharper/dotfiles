@@ -260,6 +260,7 @@ in
       cpath = "echo -n `pwd`|pbcopy";
       disablesleep = "sudo pmset -a disablesleep 1";
       enablesleep = "sudo pmset -a disablesleep 0";
+      csd3herdr = "herdr --remote csd3-herdr --session q1";
     };
   };
 
