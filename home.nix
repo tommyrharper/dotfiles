@@ -19,6 +19,10 @@ let
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no
   # such system-level list, so home.packages is the only place to add them.
   linuxNixTools = map (t: pkgs.${sel.nixName t}) sel.nixTools;
+  # CSD3's /home is NFS, tens of ms per uncached file lookup; this is the login
+  # node's own disk. Not shared between nodes and not kept across reboots, so
+  # only rebuildable state goes here.
+  csd3Local = "/local/${user}";
 in
 
 {
@@ -170,6 +174,15 @@ in
     enable = true;
     autosuggestion.enable = true;      # ghost text from history
     syntaxHighlighting.enable = true;  # commands turn green when valid
+    # CSD3: compinit's audit stats every fpath file on NFS each start. -C
+    # trusts the dump instead, keyed on the profile's store path, which changes
+    # exactly when the installed completions can.
+    completionInit = lib.mkIf csd3 ''
+      zcompdump="${csd3Local}/zsh/zcompdump-''${''${:-$HOME/.nix-profile}:A:t}"
+      [[ -d ''${zcompdump:h} ]] || mkdir -p ''${zcompdump:h}
+      autoload -U compinit && compinit -C -d "$zcompdump"
+      unset zcompdump
+    '';
     initContent = ''
       bindkey '^f' autosuggest-accept
 
@@ -239,6 +252,8 @@ in
       # compaudit cannot vet inside nix-portable ("compaudit:142: unknown
       # group"). Every zsh runs the line above itself; nothing needs to inherit it.
       typeset +x FPATH
+      # Targets of csd3NvimLocalDirs' links; gone after a reboot.
+      [[ -d ${csd3Local}/nvim/cache ]] || mkdir -p ${csd3Local}/nvim/{share,state,cache}
     '';
     shellAliases = {
       ".." = "cd ..";
@@ -301,6 +316,9 @@ in
         error_symbol = "[❯](red)";
       };
       cmd_duration.format = "[$duration]($style) ";
+    } // lib.optionalAttrs csd3 {
+      # ~600 ms per prompt in a repo on CSD3's NFS, seconds when cold.
+      git_status.disabled = true;
     };
   };
 
@@ -317,6 +335,28 @@ in
   home.activation.csd3HerdrConfigLink = lib.mkIf csd3 (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     $DRY_RUN_CMD mkdir -p "$HOME/.config"
     $DRY_RUN_CMD ln -sfn "${dotfiles}/home/.config/herdr" "$HOME/.config/herdr"
+  '');
+  # CSD3: nvim's plugins, mason servers, swap, shada, undo and luac cache on
+  # csd3Local, not NFS (a cold start walked ~2300 plugin files for over a
+  # minute). Another node starts empty; lazy.nvim and mason reinstall.
+  home.activation.csd3NvimLocalDirs = lib.mkIf csd3 (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    (
+      for d in .local/share .local/state .cache; do
+        link="$HOME/$d/nvim"
+        name="''${d##*/}"
+        target="${csd3Local}/nvim/''${name#.}"
+        $DRY_RUN_CMD mkdir -p "$target" "$HOME/$d"
+        if [ -d "$link" ] && [ ! -L "$link" ]; then
+          $DRY_RUN_CMD cp -a "$link/." "$target/" && $DRY_RUN_CMD rm -rf "$link"
+        fi
+        # ln -sfn onto a real directory would link inside it instead.
+        if [ -d "$link" ] && [ ! -L "$link" ]; then
+          echo "WARNING: $link is still a directory, left on NFS" >&2
+          continue
+        fi
+        $DRY_RUN_CMD ln -sfn "$target" "$link"
+      done
+    ) || echo "WARNING: csd3NvimLocalDirs failed" >&2
   '');
   # Not on CSD3: Claude Code there writes its own settings.json (which
   # home-manager would refuse to clobber), and the hooks here run macOS paths.
