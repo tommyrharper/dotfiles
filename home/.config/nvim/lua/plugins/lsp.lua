@@ -8,14 +8,18 @@ return {
   -- mason installs the server binaries into ~/.local/share/nvim/mason/bin.
   {
     'mason-org/mason.nvim',
+    cmd = 'Mason',
     opts = {},
   },
 
   -- Bridges mason's package names to lspconfig's server names and, in
   -- mason-lspconfig v2, calls vim.lsp.enable() for each installed server
-  -- automatically. ensure_installed fetches anything missing on startup.
+  -- automatically. ensure_installed fetches anything missing once a file opens.
   {
     'mason-org/mason-lspconfig.nvim',
+    -- Not at startup: mason's registry code is ~0.5 s of it. Before FileType,
+    -- so the first buffer still attaches.
+    event = { 'BufReadPre', 'BufNewFile' },
     dependencies = { 'mason-org/mason.nvim', 'neovim/nvim-lspconfig' },
     opts = {
       ensure_installed = { 'basedpyright', 'ruff', 'ts_ls' },
@@ -27,6 +31,7 @@ return {
   -- belong here. ts_ls needs none, so it's not mentioned below.
   {
     'neovim/nvim-lspconfig',
+    event = { 'BufReadPre', 'BufNewFile' },
     config = function()
       -- basedpyright: type checking, completion, and navigation.
       vim.lsp.config('basedpyright', {

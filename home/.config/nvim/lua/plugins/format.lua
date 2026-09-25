@@ -17,8 +17,9 @@ return {
       {
         '<leader>F',
         -- fallback covers a buffer whose formatter is missing or fails, which
-        -- is every python buffer until mason has finished installing ruff
-        function() require('conform').format({ lsp_format = 'fallback' }) end,
+        -- is every python buffer until mason has finished installing ruff.
+        -- timeout_ms: the 1 s default loses to prettier's cold start on CSD3's NFS.
+        function() require('conform').format({ lsp_format = 'fallback', timeout_ms = 10000 }) end,
         desc = 'Format',
       },
     },
