@@ -158,45 +158,61 @@ WezTerm, OpenSuperWhisper, Slack, Discord, Notion, Figma, Altair GraphQL Client,
 
 ## Neovim
 
-**Leader key is `Space`** (`vim.g.mapleader = ' '` in `lua/vim_config.lua`). `which-key` pops up automatically and shows what leader keys do.
+Runs [LazyVim](https://www.lazyvim.org/) close to stock, so its docs apply as written. **Leader is `Space`**; which-key pops up as you type it, and `<leader>sk` searches every keymap. Only what is listed as *ours* comes from this repo.
 
-### Core keymaps
+### Files, buffers, search
 
-| Key | What it does | Where |
-| --- | --- | --- |
-| `Esc` (normal) | Save the file | `lua/keys.lua` |
-| `Ctrl-A` (normal) | Select all (`ggVG`) | `lua/keys.lua` |
-| `p` (visual) | Paste over selection without clobbering the register | `lua/keys.lua` |
+| Key | What it does |
+| --- | --- |
+| `<leader><space>` | Find files (root dir) |
+| `<leader>/` | Grep (root dir) |
+| `<leader>,` | Buffers |
+| `<leader>e` | Explorer (snacks) |
+| `<leader>o` | **ours** - Oil, edit the parent directory as a buffer |
+| `H` / `L` | Previous / next buffer |
+| `s` / `S` | Flash jump / Flash treesitter |
+| `p` (visual) | **ours** - paste over a selection without clobbering the register |
 
-### Files, search and LSP
+### LSP
 
-| Key | What it does | Plugin |
-| --- | --- | --- |
-| `<leader>e` | File browser (`:Oil`), hidden files shown | oil.nvim |
-| `<leader>f` | Find files | snacks.nvim picker |
-| `<leader>s` | Search text (grep) | snacks.nvim picker |
-| `<leader>b` | Buffers | snacks.nvim picker |
-| `gd` | Goto definition | snacks.nvim LSP picker |
+Buffer-local, so they appear once a server attaches.
+
+| Key | What it does |
+| --- | --- |
+| `gd` / `gr` / `gI` / `gy` | Definition / references / implementation / type definition |
+| `K` | Hover docs |
+| `<leader>ca` | Code action |
+| `<leader>cr` / `<leader>cR` | Rename symbol / rename file |
+| `<leader>cd` / `<leader>xx` | Line diagnostics / diagnostics list (Trouble) |
+| `<leader>cm` | Open `:Mason` to watch or retry server installs |
 
 ### Git
 
-| Key | What it does | Plugin |
-| --- | --- | --- |
-| `<leader>g` | Open Neogit | neogit |
-
-Inline blame of the current line is always on via gitsigns (no keymaps configured for it).
-
-### Behaviour worth remembering
-
-| Setting | Effect |
+| Key | What it does |
 | --- | --- |
-| `clipboard = unnamedplus` | Yank and paste share the system clipboard |
-| `number` + `relativenumber` | Relative jumps, absolute on the cursor line |
-| `ignorecase` + `smartcase` | Case-insensitive search unless you type a capital |
-| `scrolloff = 16` | Cursor never gets near the screen edge |
-| `undofile` | Undo history persists across sessions |
-| `mouse = ''` | Mouse is off in nvim on purpose |
-| `:TSUpdate` | Rebuild treesitter parsers |
+| `<leader>gg` | Lazygit (root dir) |
+| `]h` / `[h` | Next / previous hunk |
+| `<leader>ghb` | Blame line (there is no always-on inline blame) |
+
+### Formatting
+
+Format-on-save is **off** (`vim.g.autoformat = false`, ours). LazyVim defaults it on, and maps `stylua` to lua and `nixfmt` to nix - which would rewrite `home.nix` or any `.lua` file here wholesale on a one-character edit.
+
+| Key | What it does |
+| --- | --- |
+| `<leader>cf` | Format the buffer now |
+| `<leader>uf` / `<leader>uF` | Toggle auto-format globally / for this buffer |
+
+### Other
+
+| Key / setting | Effect |
+| --- | --- |
+| `<leader>uC` | Colorscheme picker, live preview - `rose-pine` is installed but tokyonight is active |
+| `<C-Space>` | Treesitter incremental selection. WezTerm's leader eats it, so press `Ctrl-Space` twice |
+| `<M-j>` / `<M-k>` | Move the current line down / up |
+| `<C-h>` `<C-j>` `<C-k>` `<C-l>` | Move between windows |
+| `:LazyExtras` | Add or remove language support; writes `lazyvim.json` |
+| `:Lazy` | Plugin manager; `lazy-lock.json` is committed |
 
 ## WezTerm
 
@@ -211,8 +227,11 @@ Inline blame of the current line is always on via gitsigns (no keymaps configure
 | `Leader` `h` / `j` / `k` / `l` | Move focus left / down / up / right |
 | `Leader` `x` | Close current pane (with confirm) |
 | `Leader` `g` | Send `Ctrl-G` - triggers the zsh AI fill-buffer |
+| `Cmd` `h` / `j` / `k` / `l` | Send raw arrow keys, for Vim-style nav in TUI grids |
 
-Unfocused windows dim automatically. WezTerm is a personal-setup macOS cask.
+`Cmd+hjkl` uses Cmd because macOS never delivers it to terminal programs, so it cannot shadow a Neovim mapping - Option did, eating LazyVim's `<M-j>`/`<M-k>`. It costs WezTerm's own `Cmd+h` (hide app) and `Cmd+k` (clear scrollback).
+
+WezTerm is a personal-setup macOS cask.
 
 ## herdr
 

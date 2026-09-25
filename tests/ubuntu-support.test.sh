@@ -804,7 +804,7 @@ test_python3_linux_only_for_mason() {
     echo "skip: nix not found for python3 selection check"
     return 0
   fi
-  # mason installs nvim's basedpyright from PyPI into a venv, which needs a
+  # mason installs nvim's PyPI-backed packages into a venv, which needs a
   # python3 with ensurepip. Ubuntu's system one has none, so Nix supplies it
   # there. macOS already has a working python3 from the Xcode Command Line
   # Tools - the same arrangement as the gcc/gnumake/pkg-config entries above -
@@ -817,7 +817,7 @@ test_python3_linux_only_for_mason() {
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"python3\"" \
-      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing python3 - mason cannot install basedpyright without it"
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing python3 - mason cannot install its PyPI packages without it"
   done
 
   # Unlike the uv check above, this absence is meaningful: environment.systemPackages

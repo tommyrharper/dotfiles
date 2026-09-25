@@ -106,11 +106,15 @@ config.keys = {
   },
   -- AI-fill the Zsh input buffer: sends Ctrl-G, bound in home.nix to ai-fill-buffer.
   { key = "g", mods = "LEADER", action = wezterm.action.SendKey({ key = "g", mods = "CTRL" }) },
-  -- Option+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude agents view).
-  { key = "h", mods = "OPT", action = act.SendString("\x1b[D") },
-  { key = "j", mods = "OPT", action = act.SendString("\x1b[B") },
-  { key = "k", mods = "OPT", action = act.SendString("\x1b[A") },
-  { key = "l", mods = "OPT", action = act.SendString("\x1b[C") },
+  -- Cmd+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude
+  -- agents view). Cmd rather than Option because macOS never delivers Cmd to
+  -- terminal programs, so this cannot shadow a Neovim mapping - Option did,
+  -- eating LazyVim's Alt+j/Alt+k move-line. The cost is wezterm's own Cmd+h
+  -- (hide app) and Cmd+k (clear scrollback), which these override.
+  { key = "h", mods = "CMD", action = act.SendString("\x1b[D") },
+  { key = "j", mods = "CMD", action = act.SendString("\x1b[B") },
+  { key = "k", mods = "CMD", action = act.SendString("\x1b[A") },
+  { key = "l", mods = "CMD", action = act.SendString("\x1b[C") },
   -- Clear the shell input line without copying it to the kill ring (widget in home.nix).
   { key = "K", mods = "CTRL|SHIFT", action = act.SendString("\x1b[107;6u") },
   -- Option+Left/Right send Esc-b / Esc-f, the readline word-nav sequences.
