@@ -95,7 +95,6 @@
   # toolchain on every machine to build from source. nixpkgs ships nixd as a
   # binary, and a repo that is itself Nix is guaranteed to have Nix.
   { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  { name = "imagemagick"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
   # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
@@ -124,6 +123,7 @@
   { name = "python3"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
   { name = "chromium"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
+  { name = "imagemagick"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
