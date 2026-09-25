@@ -20,7 +20,7 @@ On macOS:
 - Homebrew apps (casks and CLI tools)
 - Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, the Rust toolchain, Hack Nerd Font, TeX Live)
 - Shell (zsh, aliases, starship prompt)
-- Neovim ([LazyVim](https://www.lazyvim.org/)) and WezTerm, the latter on the rose-pine moon theme
+- Neovim ([LazyVim](https://www.lazyvim.org/)) and WezTerm, both on the rose-pine moon theme
 - Agent configs (Claude, Codex, opencode all share one AGENTS.md)
 - Optional Pi theme, local extensions, settings/model overrides, and two pinned third-party packages
 
@@ -307,7 +307,7 @@ Nix support depends on the Rust toolchain in `tools.nix`. LazyVim's `lang.nix` e
 
 Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/config/options.lua`, and `<leader>cf` formats the buffer. LazyVim defaults that flag to on, and its extras map `stylua` to lua and `nixfmt` to nix - which means a one-character edit to `home.nix` or any `.lua` file here would come back rewritten wholesale. `<leader>uf` and `<leader>uF` toggle it back on per buffer or globally. `tests/nvim-conform.test.sh` guards this.
 
-`rose-pine` is installed but not active, so `<leader>uC` previews it against LazyVim's tokyonight live. Making it stick takes two lines in `lua/plugins/colorscheme.lua`; dropping it means deleting that file.
+The colorscheme is `rose-pine-moon`, matching `wezterm.lua`, with transparency on so the terminal's own background and opacity show through rather than being painted over. LazyVim ships only tokyonight and catppuccin, so `lua/plugins/colorscheme.lua` is a plain plugin spec; `<leader>uC` previews any of them live.
 
 ## License
 
