@@ -84,17 +84,19 @@
   # claims macOS-specific or fast-moving tools).
   { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "go"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # The formatter nvim's conform.nvim shells out to (see
-  # home/.config/nvim/lua/plugins/format.lua). Nix's `prettier` bundles its own
-  # node, so it does not depend on the npm-backed toolchain above.
+  # The formatter nvim's conform.nvim shells out to. Nix's `prettier` bundles
+  # its own node, so it does not depend on the npm-backed toolchain above.
   { name = "prettier"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # The Nix language server nvim attaches to .nix buffers (see
-  # home/.config/nvim/lua/plugins/lsp.lua). Unlike this repo's other servers it
-  # is not mason-installed: mason's registry has no nixd at all, and its only
-  # other Nix server, `nil`, is a cargo package that would need a Rust
-  # toolchain on every machine to build from source. nixpkgs ships nixd as a
-  # binary, and a repo that is itself Nix is guaranteed to have Nix.
-  { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # Rust. `cargo` is load-bearing beyond building Rust: nvim's `nil` and
+  # `statix` (the Nix language server and linter) are mason packages that build
+  # from source with cargo, so dropping this breaks Nix support in nvim.
+  # Nothing installs `rust-analyzer` for us either - LazyVim's lang.rust extra
+  # only mason-installs the debugger.
+  { name = "rustc"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "cargo"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "clippy"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "rustfmt"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "rust-analyzer"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
   # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
@@ -115,8 +117,8 @@
   { name = "gcc"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "gnumake"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "pkg-config"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
-  # Same convention, same reason: mason installs nvim's basedpyright from PyPI
-  # into a venv, and Ubuntu's system python3 ships without ensurepip, so
+  # Same convention, same reason: mason installs its PyPI-backed packages into
+  # a venv, and Ubuntu's system python3 ships without ensurepip, so
   # `python3 -m venv` fails outright there. macOS gets a working python3 from
   # the Xcode Command Line Tools, so adding one here would only shadow it -
   # environment.systemPackages precedes /usr/bin in the macOS PATH.

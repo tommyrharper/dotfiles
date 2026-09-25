@@ -18,9 +18,9 @@ On macOS:
 
 - System settings (dark mode, key repeat, dock, Finder, trackpad)
 - Homebrew apps (casks and CLI tools)
-- Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, Hack Nerd Font, TeX Live)
+- Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, the Rust toolchain, Hack Nerd Font, TeX Live)
 - Shell (zsh, aliases, starship prompt)
-- Neovim and WezTerm, both on the rose-pine moon theme
+- Neovim ([LazyVim](https://www.lazyvim.org/)) and WezTerm, the latter on the rose-pine moon theme
 - Agent configs (Claude, Codex, opencode all share one AGENTS.md)
 - Optional Pi theme, local extensions, settings/model overrides, and two pinned third-party packages
 
@@ -299,11 +299,15 @@ To add a skill or plugin, add a `[[capability]]` entry and run `./agent-capabili
 
 ## Notes
 
-The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub. That needs network once; after that it is offline. Neovim keeps italics off and uses a transparent background so it matches the terminal.
+Neovim runs [LazyVim](https://www.lazyvim.org/) as good as stock. `home/.config/nvim` is the LazyVim starter plus four files: `lua/config/options.lua`, `lua/config/keymaps.lua`, and two plugin specs. Everything else - picker, explorer, completion, LSP, treesitter, git - is whatever LazyVim ships. The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub, and `mason` installs the language servers on first non-headless launch; both need network once, and `:Lazy` / `:Mason` are where you watch or retry.
 
-Python gets `basedpyright` and `ruff`, installed by `mason` on first non-headless launch, so `:Mason` is where you watch or retry. Nix gets `nixd`, installed by `tools.nix` instead: mason's registry has no `nixd`, and its only other Nix server (`nil`) is a cargo package needing a Rust toolchain everywhere. So `nixd` needs a `./rebuild.sh`, not a `:Mason` run. Ubuntu also gets Nix's `python3`, because mason installs basedpyright into a venv and Ubuntu's system interpreter ships without `ensurepip`; macOS already has a working one from the Xcode Command Line Tools, and a Nix `python3` would shadow it. All configured in `home/.config/nvim/lua/plugins/lsp.lua`.
+Languages are LazyVim extras, listed in `home/.config/nvim/lazyvim.json` and toggled with `:LazyExtras`: TypeScript, Python, Rust, Nix, Markdown, JSON, YAML, TOML, Git, Docker. Lua needs no extra - `lazydev` and `lua_ls` are LazyVim core.
 
-[conform.nvim](https://github.com/stevearc/conform.nvim) formats on demand, never on save: `<leader>F` formats the buffer with `ruff_format` for python and `prettier` for markdown, yaml, json, html, and css. Formatting rewrites the whole buffer, so on-save would turn a one-line fix in a never-formatted project into hundreds of lines of churn, and `<Esc>` is mapped to `:w` so it would fire constantly. Each formatter reads the edited project's own config; no house style is imposed from here. lua and nix are deliberately unmapped, since `stylua` and `nixfmt` disagree with this repo's hand-formatting wholesale.
+Nix support depends on the Rust toolchain in `tools.nix`. LazyVim's `lang.nix` extra uses `nil` as its server and `statix` as its linter, and mason has no prebuilt binary for either - it builds both from source with `cargo`. `rust-analyzer` is in `tools.nix` for a related reason: LazyVim's `lang.rust` extra mason-installs only the debugger, never the server. Ubuntu also gets Nix's `python3`, because mason installs its PyPI-backed packages into a venv and Ubuntu's system interpreter ships without `ensurepip`; macOS already has a working one from the Xcode Command Line Tools, and a Nix `python3` would shadow it.
+
+Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/config/options.lua`, and `<leader>cf` formats the buffer. LazyVim defaults that flag to on, and its extras map `stylua` to lua and `nixfmt` to nix - which means a one-character edit to `home.nix` or any `.lua` file here would come back rewritten wholesale. `<leader>uf` and `<leader>uF` toggle it back on per buffer or globally. `tests/nvim-conform.test.sh` guards this.
+
+`rose-pine` is installed but not active, so `<leader>uC` previews it against LazyVim's tokyonight live. Making it stick takes two lines in `lua/plugins/colorscheme.lua`; dropping it means deleting that file.
 
 ## License
 
