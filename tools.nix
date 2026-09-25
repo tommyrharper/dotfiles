@@ -97,6 +97,11 @@
   { name = "clippy"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "rustfmt"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "rust-analyzer"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # nvim's Nix linter. LazyVim's lang.nix wires statix into nvim-lint but never
+  # adds it to mason's ensure_installed - unlike its docker and markdown extras,
+  # which do install theirs - so nothing fetches it and nvim-lint reports
+  # "error running statix" on every .nix buffer. nixpkgs has it prebuilt.
+  { name = "statix"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
 
   # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
   # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
