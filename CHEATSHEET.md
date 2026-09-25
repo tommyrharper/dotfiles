@@ -207,7 +207,7 @@ Format-on-save is **off** (`vim.g.autoformat = false`, ours). LazyVim defaults i
 
 | Key / setting | Effect |
 | --- | --- |
-| `<leader>uC` | Colorscheme picker, live preview - `rose-pine` is installed but tokyonight is active |
+| `<leader>uC` | Colorscheme picker, live preview - `rose-pine-moon` is active, matching WezTerm |
 | `<C-Space>` | Treesitter incremental selection. WezTerm's leader eats it, so press `Ctrl-Space` twice |
 | `<M-j>` / `<M-k>` | Move the current line down / up |
 | `<C-h>` `<C-j>` `<C-k>` `<C-l>` | Move between windows |
