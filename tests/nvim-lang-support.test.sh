@@ -5,12 +5,14 @@
 #   1. The set of languages does not silently shrink. `:LazyExtras` rewrites
 #      that file wholesale, so a stray toggle is a one-character diff that is
 #      easy to miss in review.
-#   2. lang.nix only works because tools.nix ships a Rust toolchain. Its server
-#      (`nil`) and linter (`statix`) are mason packages with no prebuilt
-#      binaries - mason builds both from source with cargo. Drop cargo and Nix
-#      support in nvim dies, with a build error rather than a missing-binary
-#      one. rust-analyzer is here for the same class of reason: LazyVim's
-#      lang.rust extra mason-installs only the debugger, never the server.
+#   2. lang.nix needs two things from tools.nix. Its server (`nil`) is a mason
+#      package with no prebuilt binary, so mason builds it from source with
+#      cargo - drop cargo and Nix support dies with a build error. Its linter
+#      (`statix`) mason never installs at all: lang.nix wires it into nvim-lint
+#      but, unlike the docker and markdown extras, adds nothing to mason's
+#      ensure_installed, so nvim-lint reports "error running statix" on every
+#      .nix buffer unless tools.nix supplies it. rust-analyzer is here for the
+#      same class of reason: lang.rust mason-installs only the debugger.
 #
 # Static checks on purpose: no nvim, no network, no plugin install needed.
 set -u
@@ -34,11 +36,13 @@ done
 assert_not_contains "$extras" "extras.lang.lua" \
   "lang.lua is not a LazyVim extra; lua support is core"
 
-# The coupling above. nil and statix are cargo source builds.
+# The couplings above.
 tools=$(cat "$tools_file")
 assert_contains "$extras" "extras.lang.nix" "lang.nix is not enabled"
 assert_contains "$tools" 'name = "cargo"' \
-  "tools.nix no longer declares cargo, so mason cannot build nil/statix for lang.nix"
+  "tools.nix no longer declares cargo, so mason cannot build nil for lang.nix"
+assert_contains "$tools" 'name = "statix"' \
+  "tools.nix no longer declares statix; mason never installs it, so nvim-lint fails on every .nix buffer"
 assert_contains "$tools" 'name = "rust-analyzer"' \
   "tools.nix no longer declares rust-analyzer; nothing else installs it for lang.rust"
 
