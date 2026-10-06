@@ -194,14 +194,19 @@ Buffer-local, so they appear once a server attaches.
 | `]h` / `[h` | Next / previous hunk |
 | `<leader>ghb` | Blame line (there is no always-on inline blame) |
 
-### Formatting
+### Formatting and linting
 
 Format-on-save is **off** (`vim.g.autoformat = false`, ours). LazyVim defaults it on, and maps `stylua` to lua and `nixfmt` to nix - which would rewrite `home.nix` or any `.lua` file here wholesale on a one-character edit.
+
+Linting is a separate switch and still automatic (read, write, `InsertLeave`) for nix, dockerfile and fish. Markdown is the exception - off by default, `<leader>cL` on request.
 
 | Key | What it does |
 | --- | --- |
 | `<leader>cf` | Format the buffer now |
 | `<leader>uf` / `<leader>uF` | Toggle auto-format globally / for this buffer |
+| `<leader>cL` | **ours** - lint the buffer now (markdownlint on markdown) |
+
+Only lua, nix, sh, fish and markdown have a dedicated formatter; everything else formats through its language server (`lsp_format = "fallback"`).
 
 ### Other
 
