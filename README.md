@@ -307,9 +307,7 @@ Nix support leans on `tools.nix` twice. LazyVim's `lang.nix` extra uses `nil` as
 
 Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/config/options.lua`, and `<leader>cf` formats the buffer. LazyVim defaults that flag to on, and its extras map `stylua` to lua and `nixfmt` to nix - which means a one-character edit to `home.nix` or any `.lua` file here would come back rewritten wholesale. `<leader>uf` and `<leader>uF` toggle it back on per buffer or globally. `tests/nvim-conform.test.sh` guards this.
 
-Markdown linting is off for the same reason, in `lua/plugins/lint.lua`: `lang.markdown` runs `markdownlint-cli2` over every markdown buffer on read, write and `InsertLeave`, and its loudest rule is a 2-vs-4-space list indent opinion that has nothing to say about notes. Run it deliberately with `:lua require("lint").try_lint("markdownlint-cli2")`. The linters for nix, dockerfile and fish are untouched.
-
-Note that linting and formatting are separate switches: `vim.g.autoformat` governs conform only, so nvim-lint still runs on read, write and `InsertLeave` for the filetypes that have a linter. One place they meet is markdown - LazyVim gates conform's `markdownlint-cli2 --fix` pass on the buffer already holding markdownlint diagnostics, so with the linter off `<leader>cf` runs prettier alone. `try_lint` first, then `<leader>cf`, gets the fixes.
+Linting is a separate switch - `vim.g.autoformat` governs conform only - and stays automatic for nix, dockerfile and fish. Markdown is the exception: `lua/plugins/lint.lua` turns it off, since `markdownlint-cli2` mostly argues about list indentation. `<leader>cL` runs it on request.
 
 The colorscheme is `rose-pine-moon`, matching `wezterm.lua`, with transparency on so the terminal's own background and opacity show through rather than being painted over. LazyVim ships only tokyonight and catppuccin, so `lua/plugins/colorscheme.lua` is a plain plugin spec; `<leader>uC` previews any of them live.
 

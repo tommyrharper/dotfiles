@@ -84,12 +84,8 @@
   # claims macOS-specific or fast-moving tools).
   { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "go"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # The only thing that can format markdown in nvim, and nothing installs it
-  # for us: LazyVim's lang.markdown names prettier as a formatter but
-  # mason-installs only markdownlint-cli2 and markdown-toc, both of which are
-  # conditional and usually skip. marksman reports formatting=false, so the
-  # LSP fallback has nothing either - drop this and <leader>cf on a .md buffer
-  # silently does nothing rather than erroring. Nix's `prettier` bundles its
+  # The formatter nvim's conform.nvim shells out to; LazyVim names it but never
+  # installs it, and nothing else formats markdown. Nix's `prettier` bundles its
   # own node, so it does not depend on the npm-backed toolchain above.
   { name = "prettier"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   # Rust. `cargo` is load-bearing beyond building Rust: nvim's `nil` and
