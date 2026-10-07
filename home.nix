@@ -214,6 +214,17 @@ in
         return ret
       }
 
+      # thefuck ships a `fuck` script that only prints "put eval $(thefuck
+      # --alias) in your ~/.zshrc" - the working `fuck` is a shell function
+      # that eval emits, and nothing here emitted it. Eval at startup costs a
+      # ~170ms python boot in every shell, so emit it on first use instead:
+      # unfunction first, so a missing thefuck fails with command-not-found
+      # rather than recursing into this stub forever. $+commands is a hash
+      # lookup, not a fork - thefuck is platform = "macos" in tools.nix.
+      if (( $+commands[thefuck] )); then
+        fuck() { unfunction fuck; eval "$(thefuck --alias)"; fuck "$@"; }
+      fi
+
       private_env="$HOME/.dotfiles/home/.config/zsh/private-env.zsh"
       unset HETZNER_HOST
       if [[ -r "$private_env" ]]; then
