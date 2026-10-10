@@ -206,6 +206,24 @@ Linting stays automatic for nix, dockerfile and fish; markdown is off.
 | `<leader>uf` / `<leader>uF` | Toggle auto-format globally / for this buffer |
 | `<leader>cL` | **ours** - lint the buffer now |
 
+### LaTeX
+
+VimTeX, via the `lang.tex` extra. **Local leader is `\`.** Compiling needs `latexmk` (full TeX Live scheme, personal setups only); viewing needs Skim, plus a one-time Custom preset in Skim > Settings > Sync - command `nvim`, arguments `--headless -c "VimtexInverseSearch %line '%file'"` - for shift-cmd-click to jump back into the buffer.
+
+| Key | What it does |
+| --- | --- |
+| `\ll` | Start / stop the `latexmk -pvc` daemon; recompiles on every write |
+| `\lv` | Forward search - jump Skim to the cursor |
+| `\lt` | Table of contents |
+| `\lc` | Clear aux files |
+| `cse` / `dse` | Change / delete the surrounding environment |
+| `csc` / `ds$` | Change the surrounding command / drop math delimiters |
+| `ae` `ie` / `ac` `ic` / `a$` `i$` | Environment / command / math text objects |
+| `]]` `[[` | Next / previous section |
+| `<leader>K` | Open the PDF docs for the package under the cursor |
+| `mk` `dm` `env` | **ours** - inline math, display math, environment snippets |
+| `//` `td` `sr` | **ours** - fraction, superscript, squared; only inside math |
+
 ### Other
 
 | Key / setting | Effect |
