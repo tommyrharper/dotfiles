@@ -225,6 +225,26 @@ in
         fuck() { unfunction fuck; eval "$(thefuck --alias)"; fuck "$@"; }
       fi
 
+      # tdf picks its image protocol from $TERM_PROGRAM before it believes the
+      # terminal's own kitty-graphics reply (ratatui-image rev 9564ae6:
+      # `tmux_proto.or(iterm2_proto).or(capability_proto)`, and iterm2_proto is
+      # Some for any TERM_PROGRAM containing "WezTerm"). A herdr pane inherits
+      # TERM_PROGRAM=WezTerm from the outer terminal, so tdf emits iTerm2
+      # inline images, which herdr drops - the chrome and "Rendered: 100%" show
+      # but every page is blank. herdr answers the kitty query with
+      # `_Gi=31;OK`, so hiding TERM_PROGRAM is enough to get real pages.
+      # Only inside herdr: outside it, WezTerm renders the iTerm2 protocol
+      # itself, and that path already works.
+      if (( $+commands[tdf] )); then
+        tdf() {
+          if [[ -n "''${HERDR_ENV:-}" ]]; then
+            env -u TERM_PROGRAM command tdf "$@"
+          else
+            command tdf "$@"
+          fi
+        }
+      fi
+
       private_env="$HOME/.dotfiles/home/.config/zsh/private-env.zsh"
       unset HETZNER_HOST
       if [[ -r "$private_env" ]]; then
