@@ -70,10 +70,12 @@ Edit the config files in place, then apply:
 That's it. No separate build-and-copy step.
 
 To force updates/upgrades:
+```
 cd ~/.dotfiles
-nix flake update            # or: nix flake update nixpkgs
+nix flake update            # or: nix flake update nixpkgs to just update nixpkgs
 ./rebuild.sh
-brew upgrade                # only if you want fast tools moved too`
+brew upgrade                # only if you want fast tools moved too
+```
 
 ## Ubuntu setup
 
