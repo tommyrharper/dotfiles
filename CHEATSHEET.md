@@ -207,6 +207,18 @@ Linting stays automatic for nix, dockerfile and fish; markdown is off.
 | `<leader>uf` / `<leader>uF` | Toggle auto-format globally / for this buffer |
 | `<leader>cL` | **ours** - lint the buffer now |
 
+### Surround
+
+From LazyVim's `coding.mini-surround` extra. `gsa` works in normal and visual mode.
+
+| Key | What it does |
+| --- | --- |
+| `gsa` + motion + char | Add a surrounding, e.g. `gsaiw"` quotes a word |
+| `gsac` | **ours** - wrap the selection or motion in a markdown code fence |
+| `gsd` + char | Delete a surrounding |
+| `gsr` + old + new | Replace a surrounding |
+| `gsf` / `gsF` / `gsh` | Find right / find left / highlight |
+
 ### Other
 
 | Key / setting | Effect |
