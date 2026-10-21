@@ -69,6 +69,22 @@ Edit the config files in place, then apply:
 
 That's it. No separate build-and-copy step.
 
+### Updating versions
+
+`./rebuild.sh` never changes a version. It builds the nixpkgs revision `flake.lock` pins, and `configuration.nix` leaves `homebrew.onActivation.upgrade` at its default `false`, so `brew bundle` runs with `--no-upgrade`. Both are deliberate: repeated rebuilds are then idempotent, and a rebuild to pick up a config edit cannot drag a surprise package upgrade along with it.
+
+To move the pins forward:
+
+```sh
+./update.sh
+```
+
+That runs `nix flake update` (every `updatePolicy = "stable"` tool, plus nix-darwin and home-manager), then `./rebuild.sh`, then `brew upgrade` on macOS (every `updatePolicy = "fast"` tool). The rebuild sits in the middle so a `tools.nix` entry added since the last run is installed before the upgrade pass, which only touches what is already present.
+
+`nix flake update` moves *this* repo's `flake.lock` only, and every input in it at once. Nix has no notion of updating one package: a `stable` tool's version is whatever the pinned nixpkgs revision ships, so bumping one tool means bumping the revision for all of them. To hold a single tool ahead of the rest, give it its own nixpkgs input in `flake.nix` rather than trying to update it in isolation.
+
+Not covered: tools with `hasHomebrew = false` in `tools.nix`. `home.nix`'s `installNativeTools` skips any tool whose binary already exists, so those stay at the version their installer first fetched and have to be updated with their own self-update command.
+
 ## Ubuntu setup
 
 Standalone home-manager, not nix-darwin: user-level only. No sudo rebuild, no Homebrew, no system config. Just your shell, git, starship, zoxide, and the symlinked dotfiles under `home/`.
@@ -234,6 +250,7 @@ The invariant that keeps the two paths aligned: installer selection depends on `
 - `tool-selection.nix` - the shared predicates that turn `tools.nix` into concrete installers for one `currentPlatform`.
 - `home.nix` - user-level config for both platforms: shell, packages, prompt, symlinks. Platform-specific bits branch on `pkgs.stdenv.isDarwin`.
 - `rebuild.sh` - re-applies the config after the first switch.
+- `update.sh` - moves the version pins forward, then re-applies.
 - `home/` - the actual config files that get symlinked into place.
 - `agent-capabilities.toml` / `agent-capabilities.sh` - declares and syncs agent skills, plugins, and Pi extras.
 
