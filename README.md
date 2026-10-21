@@ -69,6 +69,12 @@ Edit the config files in place, then apply:
 
 That's it. No separate build-and-copy step.
 
+To force updates/upgrades:
+cd ~/.dotfiles
+nix flake update            # or: nix flake update nixpkgs
+./rebuild.sh
+brew upgrade                # only if you want fast tools moved too`
+
 ## Ubuntu setup
 
 Standalone home-manager, not nix-darwin: user-level only. No sudo rebuild, no Homebrew, no system config. Just your shell, git, starship, zoxide, and the symlinked dotfiles under `home/`.
