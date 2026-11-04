@@ -67,6 +67,8 @@
   # this tool. Not a plain nixName entry either - nixpkgs has no treehouse
   # attribute (verified with builtins.hasAttr against this flake's nixpkgs).
   { name = "treehouse"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
+  { name = "claude-agent-acp"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "@agentclientprotocol/claude-agent-acp"; hasHomebrew = false; }
+  { name = "codex-acp"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "@agentclientprotocol/codex-acp"; }
   { name = "spec-kit"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUvTool = "specify-cli"; nativeInstallBinName = "specify"; hasHomebrew = false; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.

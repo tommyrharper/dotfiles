@@ -238,6 +238,8 @@ gnhf gnhf
 opencode opencode
 no-mistakes no-mistakes
 treehouse treehouse
+claude-agent-acp claude-agent-acp
+codex-acp codex-acp
 spec-kit specify"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
@@ -250,6 +252,8 @@ spec-kit specify"
     "Would install opencode via npm install -g opencode-ai"
     "Would install no-mistakes via https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"
     "Would install treehouse via https://kunchenguid.github.io/treehouse/install.sh"
+    "Would install claude-agent-acp via npm install -g @agentclientprotocol/claude-agent-acp"
+    "Would install codex-acp via npm install -g @agentclientprotocol/codex-acp"
     "Would install spec-kit via uv tool install specify-cli"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
@@ -268,7 +272,7 @@ spec-kit specify"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly the expected unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -288,7 +292,7 @@ spec-kit specify"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse specify; do
+    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse claude-agent-acp codex-acp specify; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -297,7 +301,7 @@ spec-kit specify"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "every native installer is wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {
@@ -460,13 +464,10 @@ test_darwin_native_install_only_homebrewless_tools() {
     return 0
   fi
   # installNativeTools now runs on both platforms (no longer gated
-  # lib.mkIf (!isDarwin)): no-mistakes and spec-kit have no Homebrew formula
-  # at all (hasHomebrew = false in tools.nix), so they are the tools that need
-  # the native installer on macOS too. The other nine fast/all tools
-  # (claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent,
-  # gnhf, opencode, treehouse) must
-  # stay exactly where they were - Homebrew-managed on macOS - so this script
-  # must mention those two and nothing else.
+  # lib.mkIf (!isDarwin)): no-mistakes, spec-kit and claude-agent-acp have no
+  # Homebrew formula (hasHomebrew = false in tools.nix), so they need the
+  # native installer on macOS too. Every other fast/all tool stays
+  # Homebrew-managed there, so this script must mention those and nothing else.
   local data brews casks names other_marker
   data=$(cd "$ROOT" && nix eval --impure --raw ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installNativeTools.data" 2>/dev/null) \
     || fail "darwinConfigurations.mac has no installNativeTools activation script - no-mistakes (hasHomebrew = false) needs it on macOS too"
@@ -474,6 +475,8 @@ test_darwin_native_install_only_homebrewless_tools() {
     "darwinConfigurations.mac installNativeTools must install no-mistakes (a Homebrew-less fast/all tool)"
   assert_contains "$data" "uv tool install specify-cli" \
     "darwinConfigurations.mac installNativeTools must install spec-kit (a Homebrew-less fast/all tool) via uv"
+  assert_contains "$data" "npm install -g @agentclientprotocol/claude-agent-acp" \
+    "darwinConfigurations.mac installNativeTools must install claude-agent-acp (a Homebrew-less fast/all tool) via npm"
   # Distinctive install commands, not bare tool names: every tool's shared
   # per-block comment text mentions "codex" and "pi-coding-agent" by name
   # regardless of which tool the block is actually for (e.g. the
@@ -488,7 +491,8 @@ test_darwin_native_install_only_homebrewless_tools() {
     "https://pi.dev/install.sh" \
     "npm install -g gnhf" \
     "npm install -g opencode-ai" \
-    "https://kunchenguid.github.io/treehouse/install.sh"
+    "https://kunchenguid.github.io/treehouse/install.sh" \
+    "npm install -g @agentclientprotocol/codex-acp"
   do
     assert_not_contains "$data" "$other_marker" \
       "darwinConfigurations.mac installNativeTools must not also try to natively install the tool behind '$other_marker' - it stays Homebrew-managed on macOS"
@@ -513,6 +517,8 @@ test_darwin_native_install_only_homebrewless_tools() {
   # (asserted above via its install.sh URL in other_marker).
   assert_contains "$brews" "\"treehouse\"" \
     "darwinConfigurations.mac must install treehouse from its real homebrew-core formula, not through the native installer"
+  assert_contains "$brews" "\"codex-acp\"" \
+    "darwinConfigurations.mac must install codex-acp from its homebrew-core formula, not through the native installer"
   assert_contains "$casks" "\"cursor-cli\"" \
     "darwinConfigurations.mac must install Cursor Agent from the cursor-cli Homebrew cask, not through the native installer"
 
@@ -521,7 +527,7 @@ test_darwin_native_install_only_homebrewless_tools() {
   [ "$names" = "true" ] \
     || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
 
-  pass "darwinConfigurations.mac's installNativeTools handles only the Homebrew-less tools (no-mistakes, spec-kit); the other nine fast/all tools stay Homebrew-managed, and neither lands in homebrew.brews/casks"
+  pass "darwinConfigurations.mac's installNativeTools handles only the Homebrew-less tools (no-mistakes, spec-kit, claude-agent-acp); the other fast/all tools stay Homebrew-managed, and none lands in homebrew.brews/casks"
 }
 
 test_linux_ssh_agent_persists() {
