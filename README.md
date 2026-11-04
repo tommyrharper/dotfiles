@@ -307,7 +307,7 @@ To add a skill or plugin, add a `[[capability]]` entry and run `./agent-capabili
 
 ## Notes
 
-Neovim runs [LazyVim](https://www.lazyvim.org/) as good as stock. `home/.config/nvim` is the LazyVim starter plus four files: `lua/config/options.lua`, `lua/config/keymaps.lua`, and two plugin specs. Everything else - picker, explorer, completion, LSP, treesitter, git - is whatever LazyVim ships. The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub, and `mason` installs the language servers on first non-headless launch; both need network once, and `:Lazy` / `:Mason` are where you watch or retry.
+Neovim runs [LazyVim](https://www.lazyvim.org/) as good as stock. `home/.config/nvim` is the LazyVim starter plus `lua/config/options.lua`, `lua/config/keymaps.lua`, and a few plugin specs in `lua/plugins/`. Everything else - picker, explorer, completion, LSP, treesitter, git - is whatever LazyVim ships. The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub, and `mason` installs the language servers on first non-headless launch; both need network once, and `:Lazy` / `:Mason` are where you watch or retry.
 
 Languages are LazyVim extras, listed in `home/.config/nvim/lazyvim.json` and toggled with `:LazyExtras`: TypeScript, Python, Rust, Nix, Markdown, JSON, YAML, TOML, Git, Docker. Lua needs no extra - `lazydev` and `lua_ls` are LazyVim core.
 
@@ -316,6 +316,8 @@ Nix support leans on `tools.nix` twice. LazyVim's `lang.nix` extra uses `nil` as
 Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/config/options.lua`, and `<leader>cf` formats the buffer. LazyVim defaults that flag to on, and its extras map `stylua` to lua and `nixfmt` to nix - which means a one-character edit to `home.nix` or any `.lua` file here would come back rewritten wholesale. `<leader>uf` and `<leader>uF` toggle it back on per buffer or globally. `tests/nvim-conform.test.sh` guards this.
 
 Linting is a separate switch - `vim.g.autoformat` governs conform only - and stays automatic for nix, dockerfile and fish. Markdown is the exception: `lua/plugins/lint.lua` turns it off, since `markdownlint-cli2` mostly argues about list indentation. `<leader>cL` runs it on request.
+
+AI chat is LazyVim's `ai.avante` extra (`<leader>a`), defaulting to the `claude-code` ACP provider; `<leader>ap` switches to `codex`. Both run through ACP adapters (`claude-agent-acp`, `codex-acp` in `tools.nix`) on top of the `claude` and `codex` CLI logins, so your Claude and ChatGPT subscriptions are used, not API keys. Log in to each CLI once before first use.
 
 The colorscheme is `rose-pine-moon`, matching `wezterm.lua`, with transparency on so the terminal's own background and opacity show through rather than being painted over. LazyVim ships only tokyonight and catppuccin, so `lua/plugins/colorscheme.lua` is a plain plugin spec; `<leader>uC` previews any of them live.
 
