@@ -28,6 +28,9 @@ if ! command -v zsh >/dev/null 2>&1; then
   exit 0
 fi
 
+# Absolute: the PATHs below drop wherever zsh lives (e.g. ~/.nix-profile/bin).
+ZSH_BIN=$(command -v zsh)
+
 TMP_ROOT=$(dotfiles_test_tmproot zsh-thefuck-alias)
 TEST_HOME="$TMP_ROOT/home"
 ZDOTDIR="$TMP_ROOT/zdotdir"
@@ -51,7 +54,7 @@ chmod +x "$STUB_BIN/thefuck"
 
 run_zsh() {
   local path=$1 cmd=$2
-  HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="$path" zsh -ic "$cmd" 2>/dev/null
+  HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="$path" "$ZSH_BIN" -ic "$cmd" 2>/dev/null
 }
 
 WITH_STUB="$STUB_BIN:/usr/bin:/bin"

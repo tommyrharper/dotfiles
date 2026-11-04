@@ -238,7 +238,7 @@ in
       if (( $+commands[tdf] )); then
         tdf() {
           if [[ -n "''${HERDR_ENV:-}" ]]; then
-            env -u TERM_PROGRAM command tdf "$@"
+            env -u TERM_PROGRAM tdf "$@"
           else
             command tdf "$@"
           fi
