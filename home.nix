@@ -238,8 +238,7 @@ in
       if (( $+commands[tdf] )); then
         tdf() {
           if [[ -n "''${HERDR_ENV:-}" ]]; then
-            # env execs tdf from PATH; `command` is not a binary on Linux.
-            env -u TERM_PROGRAM tdf "$@"
+            env -u TERM_PROGRAM command tdf "$@"
           else
             command tdf "$@"
           fi
