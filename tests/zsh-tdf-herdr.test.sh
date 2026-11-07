@@ -25,7 +25,8 @@ if ! command -v nix >/dev/null 2>&1; then
   exit 0
 fi
 
-if ! command -v zsh >/dev/null 2>&1; then
+# Resolved now: the zsh calls below narrow PATH, and zsh may live only in the Nix profile.
+if ! ZSH_BIN=$(command -v zsh); then
   echo "skip: zsh not found for shell function evaluation"
   exit 0
 fi
@@ -52,7 +53,7 @@ chmod +x "$STUB_BIN/tdf"
 run_zsh() {
   local herdr_env=$1 cmd=$2
   HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="$STUB_BIN:/usr/bin:/bin" \
-    TERM_PROGRAM=WezTerm HERDR_ENV="$herdr_env" zsh -ic "$cmd" 2>/dev/null
+    TERM_PROGRAM=WezTerm HERDR_ENV="$herdr_env" "$ZSH_BIN" -ic "$cmd" 2>/dev/null
 }
 
 in_herdr=$(run_zsh 1 'tdf some.pdf')
@@ -68,7 +69,7 @@ assert_contains "$outside" "TERM_PROGRAM=[WezTerm]" \
 # No tdf, no wrapper function: otherwise the wrapper's `command tdf` turns a
 # plain command-not-found into a confusing failure inside env.
 no_tdf=$(HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="/usr/bin:/bin" \
-  zsh -ic 'whence -w tdf' 2>/dev/null)
+  "$ZSH_BIN" -ic 'whence -w tdf' 2>/dev/null)
 assert_not_contains "$no_tdf" function \
   "tdf is wrapped even with tdf absent; the wrapper should only exist when the tool does"
 

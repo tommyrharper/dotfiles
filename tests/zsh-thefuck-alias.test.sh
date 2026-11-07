@@ -23,7 +23,8 @@ if ! command -v nix >/dev/null 2>&1; then
   exit 0
 fi
 
-if ! command -v zsh >/dev/null 2>&1; then
+# Resolved now: the zsh calls below narrow PATH, and zsh may live only in the Nix profile.
+if ! ZSH_BIN=$(command -v zsh); then
   echo "skip: zsh not found for shell function evaluation"
   exit 0
 fi
@@ -51,7 +52,7 @@ chmod +x "$STUB_BIN/thefuck"
 
 run_zsh() {
   local path=$1 cmd=$2
-  HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="$path" zsh -ic "$cmd" 2>/dev/null
+  HOME="$TEST_HOME" ZDOTDIR="$ZDOTDIR" PATH="$path" "$ZSH_BIN" -ic "$cmd" 2>/dev/null
 }
 
 WITH_STUB="$STUB_BIN:/usr/bin:/bin"
