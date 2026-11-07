@@ -403,6 +403,10 @@ in
   # on both (see above) - a no-op ordering on macOS today since herdr itself
   # never goes through installNativeTools there, but keeps the two activation
   # scripts in one consistent, deterministic order everywhere.
+  # The claude target appends a hook to ~/.claude/settings.json (the tracked
+  # file, via symlink) with this machine's absolute home path, and skips it
+  # only on an exact match - so each machine adds its own entry, dead on every
+  # other machine. herdr-claude-hooks.jq rewrites it to $HOME and dedupes.
   home.activation.installHerdrAgentIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" "installNativeTools" ] ''
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     if command -v herdr >/dev/null 2>&1; then
@@ -410,6 +414,16 @@ in
         ''${DRY_RUN_CMD:-} herdr integration install "$target" >/dev/null 2>&1 ||
           echo "WARNING: herdr integration install $target failed - continuing" >&2
       done
+      settings="$HOME/.claude/settings.json"
+      if [ -z "''${DRY_RUN_CMD:-}" ] && [ -f "$settings" ]; then
+        (
+          tmp=$(${pkgs.coreutils}/bin/mktemp)
+          trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
+          ${pkgs.jq}/bin/jq -f ${./herdr-claude-hooks.jq} "$settings" >"$tmp"
+          # Redirect, not mv: writes through the symlink into the repo.
+          ${pkgs.diffutils}/bin/cmp -s "$tmp" "$settings" || ${pkgs.coreutils}/bin/cat "$tmp" >"$settings"
+        ) || echo "WARNING: could not make herdr's Claude hook path portable - continuing" >&2
+      fi
     else
       echo "WARNING: herdr not found on PATH - skipping agent integration install" >&2
     fi
