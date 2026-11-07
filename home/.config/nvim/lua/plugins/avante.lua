@@ -8,5 +8,6 @@ return {
     -- Required since avante's command rewrite; LazyVim's ai.avante extra lacks it.
     dependencies = { { "ColinKennedy/mega.cmdparse", dependencies = { "ColinKennedy/mega.logging" } } },
     opts = { provider = "claude-code" },
+    keys = { { "<leader>at", "<cmd>Avante toggle<CR>", desc = "Toggle Avante" } },
   },
 }
