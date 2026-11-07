@@ -2,6 +2,9 @@
   "env": {
     "_ZO_DOCTOR": "0"
   },
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "hooks": {
     "SessionStart": [
       {
