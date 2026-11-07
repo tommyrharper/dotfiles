@@ -16,6 +16,15 @@
 - Always use treehouse for worktrees if it is available.
 - When you are done with a PR, always give me the link.
 - If treehouse is fully leased, attempt to reclaim a previous worktree or prune the worktrees before resorting to a normal git worktree.
+- In Python projects managed by `uv`, always add to `pyproject.toml`:
+
+  ```toml
+  [tool.pyright]
+  venvPath = "."
+  venv = ".venv"
+  ```
+
+  Without it pyright (the LSP Neovim uses) type-checks against the system interpreter and reports every third-party import as missing, even though `uv sync` installed it into `.venv`.
 - Make your comments and docs as short as possible.
 - Do not comment something in the code that the code explains. Only comment things that you can't tell from the code.
 
