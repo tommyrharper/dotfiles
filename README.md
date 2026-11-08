@@ -317,7 +317,7 @@ Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/confi
 
 Linting is a separate switch - `vim.g.autoformat` governs conform only - and stays automatic for nix, dockerfile and fish. Markdown is the exception: `lua/plugins/lint.lua` turns it off, since `markdownlint-cli2` mostly argues about list indentation. `<leader>cL` runs it on request.
 
-AI chat is LazyVim's `ai.avante` extra (`<leader>a`), defaulting to the `claude-code` ACP provider; `<leader>ap` switches to `codex`. Both run through ACP adapters (`claude-agent-acp`, `codex-acp` in `tools.nix`) on top of the `claude` and `codex` CLI logins, so your Claude and ChatGPT subscriptions are used, not API keys. Log in to each CLI once before first use.
+AI chat is LazyVim's `ai.avante` extra (`<leader>a`), defaulting to the `claude-code` ACP provider; `<leader>ap` switches to `codex`. Both run through ACP adapters (`claude-agent-acp`, `codex-acp` in `tools.nix`) on top of the `claude` and `codex` CLI logins, so your Claude and ChatGPT subscriptions are used, not API keys. Log in to each CLI once before first use. [CodeCompanion](https://codecompanion.olimorris.dev) (`<leader>C`, `lua/plugins/codecompanion.lua`) sits alongside on the same adapters and logins, defaulting to Claude Code; `ga` in its chat switches to Codex.
 
 The colorscheme is `rose-pine-moon`, matching `wezterm.lua`, with transparency on so the terminal's own background and opacity show through rather than being painted over. LazyVim ships only tokyonight and catppuccin, so `lua/plugins/colorscheme.lua` is a plain plugin spec; `<leader>uC` previews any of them live.
 
