@@ -33,7 +33,8 @@ require("lazy").setup({
   },
   install = { colorscheme = { "tokyonight", "habamax" } },
   checker = {
-    enabled = true, -- check for plugin updates periodically
+    -- Off on CSD3: each check spawns ~110 git processes on a login node over NFS.
+    enabled = vim.env.DOTFILES_CSD3_INSIDE == nil, -- check for plugin updates periodically
     notify = false, -- notify on update
   }, -- automatically check for plugin updates
   performance = {

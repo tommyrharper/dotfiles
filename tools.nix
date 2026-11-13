@@ -106,6 +106,9 @@
   # which do install theirs - so nothing fetches it and nvim-lint reports
   # "error running statix" on every .nix buffer. nixpkgs has it prebuilt.
   { name = "statix"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # CSD3: nvim's `nil` from here, not mason's cargo build (a login node's CPU
+  # watchdog kills it, and mason's dir is per node there). See plugins/nix.lua.
+  { name = "nil"; scope = "basic"; platform = [ "csd3" ]; updatePolicy = "stable"; }
 
   # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
   # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
