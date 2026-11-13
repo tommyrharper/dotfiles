@@ -137,8 +137,9 @@
   # environment.systemPackages precedes /usr/bin in the macOS PATH.
   { name = "python3"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
 
-  { name = "chromium"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
-  { name = "imagemagick"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
+  # Not csd3: headless-browser screenshot tooling, a large GUI closure on NFS.
+  { name = "chromium"; scope = "basic"; platform = [ "ubuntu" ]; updatePolicy = "stable"; }
+  { name = "imagemagick"; scope = "basic"; platform = [ "ubuntu" ]; updatePolicy = "stable"; }
 
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).
