@@ -1,4 +1,4 @@
-{ config, pkgs, lib, user, usePersonalSetup, blockchainDev, ... }:
+{ config, pkgs, lib, user, usePersonalSetup, blockchainDev, csd3, ... }:
 
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
@@ -13,12 +13,16 @@ let
   # currentPlatform for ./tool-selection.nix: "macos" here always resolves
   # to the exact same value configuration.nix hardcodes, so this branch is
   # provably a no-op on Darwin (see the drvPath-diff test in tests/).
-  currentPlatform = if isDarwin then "macos" else "ubuntu";
+  currentPlatform = if isDarwin then "macos" else if csd3 then "csd3" else "ubuntu";
   sel = import ./tool-selection.nix { inherit lib usePersonalSetup blockchainDev currentPlatform; };
   # nix-darwin's own environment.systemPackages already installs the macOS
   # Nix tools (configuration.nix); standalone home-manager on Ubuntu has no
   # such system-level list, so home.packages is the only place to add them.
   linuxNixTools = map (t: pkgs.${sel.nixName t}) sel.nixTools;
+  # CSD3's /home is NFS, tens of ms per uncached file lookup; this is the login
+  # node's own disk. Not shared between nodes and not kept across reboots, so
+  # only rebuildable state goes here.
+  csd3Local = "/local/${user}";
 in
 
 {
@@ -34,8 +38,13 @@ in
     jq        # json on the command line
     lazygit
     neovim
+  ]
+  # Not on CSD3 (csd3 = true, flake.nix): no rootless Docker without subuids
+  # or a systemd user instance to run it; jobs there use Apptainer instead.
+  ++ lib.optionals (!csd3) [
     docker
     docker-compose
+  ] ++ [
     # nvim-treesitter (main) needs the CLI; brew's tree-sitter is library-only
     tree-sitter
     # the font everything renders in
@@ -147,7 +156,9 @@ in
     # $XDG_RUNTIME_DIR/docker.sock, not /var/run/docker.sock, and the CLI does
     # not look there by itself. `$(id -u)` is expanded when hm-session-vars.sh
     # is sourced, so it stays correct for whichever uid the shell runs as.
+  } // lib.optionalAttrs (!isDarwin && !csd3) {
     DOCKER_HOST = "unix:///run/user/$(id -u)/docker.sock";
+  } // lib.optionalAttrs (!isDarwin) {
     # Same prefix installNativeTools uses above, but exported into every
     # shell so an interactive `npm root -g` / `npm install -g` agrees with
     # where the npm-backed tools actually live. Without it npm resolves the
@@ -163,6 +174,15 @@ in
     enable = true;
     autosuggestion.enable = true;      # ghost text from history
     syntaxHighlighting.enable = true;  # commands turn green when valid
+    # CSD3: compinit's audit stats every fpath file on NFS each start. -C
+    # trusts the dump instead, keyed on the profile's store path, which changes
+    # exactly when the installed completions can.
+    completionInit = lib.mkIf csd3 ''
+      zcompdump="${csd3Local}/zsh/zcompdump-''${''${:-$HOME/.nix-profile}:A:t}"
+      [[ -d ''${zcompdump:h} ]] || mkdir -p ''${zcompdump:h}
+      autoload -U compinit && compinit -C -d "$zcompdump"
+      unset zcompdump
+    '';
     initContent = ''
       bindkey '^f' autosuggest-accept
 
@@ -256,6 +276,16 @@ in
       if [[ -n "''${HETZNER_HOST:-}" ]]; then
         alias hetzner="ssh ${user}@$HETZNER_HOST"
       fi
+    '' + lib.optionalString csd3 ''
+      # CSD3's `module` is a bash function, which zsh cannot inherit.
+      [ -r /usr/share/Modules/init/zsh ] && . /usr/share/Modules/init/zsh
+      # That init also exports FPATH with its root-owned completion dir, so a
+      # child zsh (a herdr pane) would compinit with it on fpath, which
+      # compaudit cannot vet inside nix-portable ("compaudit:142: unknown
+      # group"). Every zsh runs the line above itself; nothing needs to inherit it.
+      typeset +x FPATH
+      # Targets of csd3NvimLocalDirs' links; gone after a reboot.
+      [[ -d ${csd3Local}/nvim/cache ]] || mkdir -p ${csd3Local}/nvim/{share,state,cache}
     '';
     shellAliases = {
       ".." = "cd ..";
@@ -319,6 +349,9 @@ in
         error_symbol = "[❯](red)";
       };
       cmd_duration.format = "[$duration]($style) ";
+    } // lib.optionalAttrs csd3 {
+      # ~600 ms per prompt in a repo on CSD3's NFS, seconds when cold.
+      git_status.disabled = true;
     };
   };
 
@@ -327,10 +360,42 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/wezterm";
   home.file.".config/nvim".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/nvim";
-  home.file.".config/herdr".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
-  home.file.".claude/settings.json".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.claude/settings.json";
+  home.file.".config/herdr" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
+  };
+  # CSD3: a direct link, not one through /nix/store, which exists only inside
+  # nix-portable - herdr --remote runs herdr outside it and must see the sessions.
+  home.activation.csd3HerdrConfigLink = lib.mkIf csd3 (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    $DRY_RUN_CMD mkdir -p "$HOME/.config"
+    $DRY_RUN_CMD ln -sfn "${dotfiles}/home/.config/herdr" "$HOME/.config/herdr"
+  '');
+  # CSD3: nvim's plugins, mason servers, swap, shada, undo and luac cache on
+  # csd3Local, not NFS (a cold start walked ~2300 plugin files for over a
+  # minute). Another node starts empty; lazy.nvim and mason reinstall.
+  home.activation.csd3NvimLocalDirs = lib.mkIf csd3 (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    (
+      for d in .local/share .local/state .cache; do
+        link="$HOME/$d/nvim"
+        name="''${d##*/}"
+        target="${csd3Local}/nvim/''${name#.}"
+        $DRY_RUN_CMD mkdir -p "$target" "$HOME/$d"
+        if [ -d "$link" ] && [ ! -L "$link" ]; then
+          $DRY_RUN_CMD cp -a "$link/." "$target/" && $DRY_RUN_CMD rm -rf "$link"
+        fi
+        # ln -sfn onto a real directory would link inside it instead.
+        if [ -d "$link" ] && [ ! -L "$link" ]; then
+          echo "WARNING: $link is still a directory, left on NFS" >&2
+          continue
+        fi
+        $DRY_RUN_CMD ln -sfn "$target" "$link"
+      done
+    ) || echo "WARNING: csd3NvimLocalDirs failed" >&2
+  '');
+  # Not on CSD3: Claude Code there writes its own settings.json (which
+  # home-manager would refuse to clobber), and the hooks here run macOS paths.
+  home.file.".claude/settings.json" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.claude/settings.json";
+  };
 
   # Keep Pi's credential and runtime state local by linking only authored files and directories.
   home.file.".pi/agent/themes".source =
@@ -360,7 +425,9 @@ in
   # programs.zsh automatically. macOS is unaffected (isDarwin = true there):
   # it already gets a persistent agent for free via launchd + Keychain
   # (UseKeychain above), so this would just add a redundant agent process.
-  services.ssh-agent.enable = !isDarwin;
+  # Not on CSD3 either: its unit would run a /nix/store binary that exists
+  # only inside nix-portable's namespace, not for systemd.
+  services.ssh-agent.enable = !isDarwin && !csd3;
 
   # Linux-only: without lingering, systemd-logind stops the user's systemd
   # --user instance (and every unit in it, including ssh-agent above) as
@@ -372,7 +439,7 @@ in
   # immediately for the current user (no sudo, no reboot, no re-login) and
   # is idempotent to rerun.
   home.activation.enableSshAgentLinger = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-    if isDarwin then
+    if isDarwin || csd3 then
       ""
     else
       ''
@@ -440,7 +507,7 @@ in
   # dies with "newuidmap: executable file not found in $PATH". Lingering is
   # enabled above, which is also what keeps this daemon alive between SSH
   # sessions. macOS gets Docker from Colima (tools.nix), not from here.
-  systemd.user.services.docker = lib.mkIf (!isDarwin) {
+  systemd.user.services.docker = lib.mkIf (!isDarwin && !csd3) {
     Unit.Description = "Rootless Docker daemon";
     Service = {
       ExecStart = "${pkgs.docker}/bin/dockerd-rootless";
@@ -460,18 +527,24 @@ in
   # committed, per-platform dotfiles.config.public.{darwin,linux}; per-host
   # secrets live in the gitignored dotfiles.config.private (copy from
   # dotfiles.config.private.example) - see README.md "SSH config".
-  home.file.".ssh/dotfiles.config.public".source =
-    config.lib.file.mkOutOfStoreSymlink
+  #
+  # Not on CSD3: its umask is 002, so these group-writable fragments make ssh
+  # refuse the whole ~/.ssh/config ("Bad owner or permissions"), and the
+  # Linux one names an id_rsa the account does not use.
+  home.file.".ssh/dotfiles.config.public" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink
       "${dotfiles}/home/.ssh/dotfiles.config.public.${if isDarwin then "darwin" else "linux"}";
-  home.file.".ssh/dotfiles.config.private".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.ssh/dotfiles.config.private";
+  };
+  home.file.".ssh/dotfiles.config.private" = lib.mkIf (!csd3) {
+    source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.ssh/dotfiles.config.private";
+  };
 
   # Prepend Include lines for the two fragments above into ~/.ssh/config if
   # they aren't already there, so a fresh machine gets them wired in on the
   # first rebuild with no manual paste. Prepended (not appended) so dotfiles
   # defaults load first and Colima/other tools can keep appending to the
   # bottom of the file untouched. Never touches existing content otherwise.
-  home.activation.sshIncludeDotfilesFragments = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.sshIncludeDotfilesFragments = lib.mkIf (!csd3) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     ssh_dir="$HOME/.ssh"
     ssh_config="$ssh_dir/config"
 
@@ -502,5 +575,5 @@ in
         mv $VERBOSE_ARG "$tmp" "$ssh_config"
       fi
     done
-  '';
+  '');
 }

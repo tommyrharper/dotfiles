@@ -25,14 +25,14 @@ dotfiles_require_setup_env() {
   if [ ! -f "$env_file" ]; then
     echo "Missing $env_file - this machine's setup profile has not been chosen." >&2
     echo "  cp $dir/.env.example $dir/.env" >&2
-    echo "then set DOTFILES_SETUP to personal or basic and re-run." >&2
+    echo "then set DOTFILES_SETUP to personal or basic (or csd3, see .env.example) and re-run." >&2
     return 1
   fi
 
   # Read the one key out rather than sourcing the file: .env is hand-edited and
   # both callers run sudo, so an unrelated typo must not execute as shell code.
   # Last assignment wins, the way a shell would resolve it.
-  value="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DOTFILES_SETUP=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
+  value="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?DOTFILES_SETUP=["'\'']?([A-Za-z0-9]*).*/\2/p' "$env_file" | tail -n1)"
   blockchain="$(sed -nE 's/^[[:space:]]*(export[[:space:]]+)?BLOCKCHAIN_DEV=["'\'']?([A-Za-z]*).*/\2/p' "$env_file" | tail -n1)"
   # Captured raw, unlike the two above, then validated below: silently
   # truncating a malformed username at the first odd character would build a
@@ -43,14 +43,18 @@ dotfiles_require_setup_env() {
   case "$value" in
     personal) DOTFILES_FLAKE_SUFFIX="" ;;
     basic)    DOTFILES_FLAKE_SUFFIX="-basic" ;;
+    # basic's tooling for Cambridge's CSD3 cluster: no root, so Nix is
+    # nix-portable with its store in ~ and runs only interactive shells
+    # (csd3/nix-portable.sh), and nothing needing systemd or sudo is built.
+    csd3)     DOTFILES_FLAKE_SUFFIX="-csd3" ;;
     "")
       echo "DOTFILES_SETUP is not set in $env_file." >&2
-      echo "Set it to personal or basic (see $dir/.env.example) and re-run." >&2
+      echo "Set it to personal or basic, or csd3 (see $dir/.env.example) and re-run." >&2
       return 1
       ;;
     *)
       echo "DOTFILES_SETUP=$value in $env_file is not a setup this repo builds." >&2
-      echo "Use personal or basic (see $dir/.env.example) and re-run." >&2
+      echo "Use personal or basic, or csd3 (see $dir/.env.example) and re-run." >&2
       return 1
       ;;
   esac

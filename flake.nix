@@ -53,8 +53,11 @@
       # DOTFILES_SETUP and BLOCKCHAIN_DEV into the suffix below, and
       # bootstrap.sh/rebuild.sh append it to the output name they build.
       profiles = [
-        { suffix = ""; usePersonalSetup = true; }
-        { suffix = "-basic"; usePersonalSetup = false; }
+        { suffix = ""; usePersonalSetup = true; csd3 = false; }
+        { suffix = "-basic"; usePersonalSetup = false; csd3 = false; }
+        # basic, for Cambridge's CSD3 cluster: Linux only, and home.nix drops
+        # everything needing root, systemd user services or a real /nix there.
+        { suffix = "-csd3"; usePersonalSetup = false; csd3 = true; }
       ];
       setups = builtins.concatMap (p: [
         (p // { blockchainDev = false; })
@@ -65,8 +68,8 @@
       # config: no root, no sudo, no Homebrew.
       linuxSystems = [ "x86_64-linux" "aarch64-linux" ];
 
-      mkDarwin = { usePersonalSetup, blockchainDev, ... }: nix-darwin.lib.darwinSystem {
-        specialArgs = { inherit user usePersonalSetup blockchainDev; };
+      mkDarwin = { usePersonalSetup, blockchainDev, csd3, ... }: nix-darwin.lib.darwinSystem {
+        specialArgs = { inherit user usePersonalSetup blockchainDev csd3; };
         modules = [
           ./configuration.nix
           nix-homebrew.darwinModules.nix-homebrew
@@ -75,15 +78,15 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "before-home-manager";
-            home-manager.extraSpecialArgs = { inherit user usePersonalSetup blockchainDev; };
+            home-manager.extraSpecialArgs = { inherit user usePersonalSetup blockchainDev csd3; };
             home-manager.users.${user} = import ./home.nix;
           }
         ];
       };
 
-      mkHome = system: { usePersonalSetup, blockchainDev, ... }: home-manager.lib.homeManagerConfiguration {
+      mkHome = system: { usePersonalSetup, blockchainDev, csd3, ... }: home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
-        extraSpecialArgs = { inherit user usePersonalSetup blockchainDev; };
+        extraSpecialArgs = { inherit user usePersonalSetup blockchainDev csd3; };
         modules = [ ./home.nix ];
       };
     in
@@ -92,7 +95,7 @@
       darwinConfigurations = builtins.listToAttrs (map (setup: {
         name = "${hostLabel}${setup.suffix}";
         value = mkDarwin setup;
-      }) setups);
+      }) (builtins.filter (setup: !setup.csd3) setups));
 
       # bootstrap.sh/rebuild.sh select "${user}@$(uname -m)-linux" on Ubuntu,
       # plus the same suffixes .env selects.

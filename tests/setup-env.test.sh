@@ -69,6 +69,7 @@ assert_accepted "personal with blockchain dev" \
   "$(printf 'DOTFILES_SETUP=personal\nBLOCKCHAIN_DEV=true')" "-blockchain"
 assert_accepted "basic with blockchain dev" \
   "$(printf 'DOTFILES_SETUP=basic\nBLOCKCHAIN_DEV=true')" "-basic-blockchain"
+assert_accepted "the csd3 profile" "DOTFILES_SETUP=csd3" "-csd3"
 pass "setup-env.sh maps DOTFILES_SETUP and BLOCKCHAIN_DEV onto the flake output suffixes"
 
 # --- the username ----------------------------------------------------------------
@@ -154,7 +155,36 @@ for suffix in "" "-basic" "-blockchain" "-basic-blockchain"; do
       "flake.nix has no homeConfigurations.\"${FLAKE_USER}@${system}${suffix}\" - rebuild.sh builds that name for one of the two .env profiles, got: $home_outputs"
   done
 done
+for system in x86_64-linux aarch64-linux; do
+  assert_contains "$home_outputs" "\"${FLAKE_USER}@${system}-csd3\"" \
+    "flake.nix has no homeConfigurations.\"${FLAKE_USER}@${system}-csd3\" - rebuild.sh builds that name for DOTFILES_SETUP=csd3, got: $home_outputs"
+done
+assert_not_contains "$darwin_outputs" "-csd3" \
+  "csd3 is a Linux cluster profile, so there must be no darwinConfigurations for it, got: $darwin_outputs"
 pass "every suffix setup-env.sh can return names a real darwin and Linux flake output"
+
+# csd3 is basic minus what CSD3 cannot run (no root, no systemd user
+# services, a store only inside nix-portable): it must really drop them, and
+# the other Linux outputs must keep them.
+hm_value() {
+  (cd "$ROOT" && nix eval --impure --json ".#homeConfigurations.\"${FLAKE_USER}@x86_64-linux$1\".config.$2" "${@:3}" 2>/dev/null) \
+    || fail "homeConfigurations.\"${FLAKE_USER}@x86_64-linux$1\".config.$2 failed to evaluate"
+}
+for check in "services.ssh-agent.enable" "systemd.user.services ? docker" \
+             "home.file ? \".ssh/dotfiles.config.public\"" "home.file ? \".claude/settings.json\""; do
+  attr="${check%% \?*}"
+  if [ "$attr" = "$check" ]; then
+    basic=$(hm_value -basic "$attr"); csd3=$(hm_value -csd3 "$attr")
+  else
+    name="${check#* \? }"
+    basic=$(hm_value -basic "$attr" --apply "a: a ? ${name}"); csd3=$(hm_value -csd3 "$attr" --apply "a: a ? ${name}")
+  fi
+  [ "$basic" = true ] || fail "the -basic Linux output must keep ${check}, got $basic"
+  [ "$csd3" = false ] || fail "DOTFILES_SETUP=csd3 must drop ${check}, got $csd3"
+done
+assert_not_contains "$(hm_value -csd3 home.packages --apply 'map (p: p.pname or p.name)')" '"docker"' \
+  "DOTFILES_SETUP=csd3 must not install docker"
+pass "the -csd3 output drops Docker, ssh-agent, the SSH fragments and the Claude settings link"
 
 # The username has to come from the environment, not from a tracked file:
 # a second, different DOTFILES_USER must move home.username with it.

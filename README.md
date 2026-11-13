@@ -107,6 +107,44 @@ Fast-moving `platform = "all"` tools have no Nix path here, so `home.nix`'s `ins
 
 `NPM_CONFIG_PREFIX` is *also* set via `home.sessionVariables` (Linux only), so interactive shells resolve `npm root -g` to `~/.local/lib/node_modules` rather than the read-only Nix store. Both must stay in sync: the generated activation script runs with its own environment and never sources `hm-session-vars.sh`. `pkgs.nodejs` is in `home.packages` on Linux because the npm-backed launchers shebang into `node` at runtime, not just during install. macOS is unaffected, and the attribute is gated with `lib.optionalAttrs` so it is absent from the darwin evaluation entirely.
 
+## CSD3 setup
+
+Cambridge's CSD3 cluster has no root, no systemd user services for your
+units, and asks that Slurm jobs do no I/O on `/home`. `DOTFILES_SETUP=csd3`
+(in `.env`) is the `basic` tooling built for that, with Nix as
+[nix-portable](https://github.com/DavHau/nix-portable) and its store in
+`~/.nix-portable` - on `/home` deliberately: a store on Lustre (`hpc-work`)
+breaks Nix, and node-local disks are not shared.
+
+```bash
+git clone https://github.com/tommyrharper/dotfiles.git ~/dotfiles && cd ~/dotfiles
+git switch csd3
+cp .env.example .env    # then set DOTFILES_SETUP=csd3
+./bootstrap.sh          # nix-portable, first switch, one line in ~/.bashrc
+```
+
+The store only exists inside nix-portable's namespace, and so does everything
+home-manager links into it, so an interactive login shell starts the
+profile's zsh inside it (`csd3/nix-portable.sh`, from `~/.bashrc`). It never
+does in a Slurm job (`SLURM_JOB_ID`, `sintr` included), for `scp`/`sftp` or
+`ssh host cmd`, or while `~/.no-nix-shell` exists - the way back to plain
+bash. Jobs get their tools from modules, containers and `hpc-work` instead
+(ri-reproducibility's `scripts/lib/job-env.sh` checks that nothing a job runs
+resolves into `/home` or a Nix store).
+
+Login shells share one ssh-agent per login node (`/tmp/ssh-agent-$USER`);
+with `AddKeysToAgent yes` in `~/.ssh/config` the passphrase is asked once per
+node, on first use.
+
+What `csd3` leaves out, and why: Docker and home-manager's ssh-agent (systemd
+user units that would run store paths systemd cannot see); the SSH config fragments
+(CSD3's umask 002 makes them group-writable, and ssh then refuses all of
+`~/.ssh/config`); the `~/.claude/settings.json` link (Claude Code writes its
+own there). The first switch runs with
+`-b before-home-manager`, keeping any file it would replace. Builds run
+with Nix's sandbox off (`sandbox = false`), which nesting inside bwrap
+requires.
+
 ## Make it yours
 
 This repo is mine. Review these before you run `bootstrap.sh`:
@@ -180,7 +218,7 @@ programs.git = {
 | Property       | Question                                          | Values                     |
 | -------------- | ------------------------------------------------- | -------------------------- |
 | `scope`        | Do I need this on a minimal dev machine?          | `basic` / `personal` / `blockchain` |
-| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu` |
+| `platform`     | Where does this tool make sense?                  | `all` / `macos` / `ubuntu`, or a list of `macos` / `ubuntu` / `csd3` (`ubuntu` alone includes `csd3`) |
 | `updatePolicy` | Do I want the latest upstream version quickly?    | `stable` / `fast`          |
 | `isCask`       | If installed through Homebrew, is it a cask?      | `true` / omitted           |
 | `hasHomebrew`  | Does this tool have a real Homebrew formula/cask? | `true` (default) / `false` |
