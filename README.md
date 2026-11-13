@@ -118,7 +118,6 @@ breaks Nix, and node-local disks are not shared.
 
 ```bash
 git clone https://github.com/tommyrharper/dotfiles.git ~/dotfiles && cd ~/dotfiles
-git switch csd3
 cp .env.example .env    # then set DOTFILES_SETUP=csd3
 ./bootstrap.sh          # nix-portable, first switch, one line in ~/.bashrc
 ```
@@ -131,6 +130,13 @@ does in a Slurm job (`SLURM_JOB_ID`, `sintr` included), for `scp`/`sftp` or
 bash. Jobs get their tools from modules, containers and `hpc-work` instead
 (ri-reproducibility's `scripts/lib/job-env.sh` checks that nothing a job runs
 resolves into `/home` or a Nix store).
+
+`/home`, and so the Nix store, is NFS: a cold file lookup costs ~4.5 ms. So on
+CSD3 the Nix zsh drops the modules' `LD_LIBRARY_PATH` (`hostlibs cmd` brings it
+back), nvim's data, state and cache live on the node's `/local/$USER` (each
+node installs plugins and mason tools once, after each reboot), compinit trusts
+its dump, starship skips `git_status`, lazy.nvim's update checker is off, and
+nvim's `nil` comes from Nix instead of a mason cargo build.
 
 Login shells share one ssh-agent per login node (`/tmp/ssh-agent-$USER`);
 with `AddKeysToAgent yes` in `~/.ssh/config` the passphrase is asked once per

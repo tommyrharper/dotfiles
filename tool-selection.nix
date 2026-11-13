@@ -11,9 +11,8 @@
 let
   tools = import ./tools.nix;
 
-  # CSD3 (the csd3 branch) is a third platform. `platform` may be a list of
-  # "macos" / "ubuntu" / "csd3"; the plain strings keep main's meaning, with
-  # "ubuntu" meaning Linux, so entries merged from main apply to CSD3 as-is.
+  # CSD3 is a third platform. `platform` may be a list of
+  # "macos" / "ubuntu" / "csd3"; a plain "ubuntu" means any Linux, CSD3 included.
   platformsOf = t:
     if builtins.isList t.platform then t.platform
     else if t.platform == "all" then [ "macos" "ubuntu" "csd3" ]
