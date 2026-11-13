@@ -68,6 +68,8 @@
   # attribute (verified with builtins.hasAttr against this flake's nixpkgs).
   # Not csd3: its prebuilt binary needs glibc 2.34; CSD3's Rocky 8 has 2.28.
   { name = "treehouse"; scope = "basic"; platform = [ "macos" "ubuntu" ]; updatePolicy = "fast"; nativeInstallUrl = "https://kunchenguid.github.io/treehouse/install.sh"; }
+  { name = "claude-agent-acp"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "@agentclientprotocol/claude-agent-acp"; hasHomebrew = false; }
+  { name = "codex-acp"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallNpmPackage = "@agentclientprotocol/codex-acp"; }
   { name = "spec-kit"; scope = "basic"; platform = "all"; updatePolicy = "fast"; nativeInstallUvTool = "specify-cli"; nativeInstallBinName = "specify"; hasHomebrew = false; }
 
   # Stable CLI dev tooling wanted on every machine, personal or not.
@@ -85,17 +87,28 @@
   # claims macOS-specific or fast-moving tools).
   { name = "uv"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "go"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # The formatter nvim's conform.nvim shells out to (see
-  # home/.config/nvim/lua/plugins/format.lua). Nix's `prettier` bundles its own
-  # node, so it does not depend on the npm-backed toolchain above.
+  # The formatter nvim's conform.nvim shells out to; LazyVim names it but never
+  # installs it, and nothing else formats markdown. Nix's `prettier` bundles its
+  # own node, so it does not depend on the npm-backed toolchain above.
   { name = "prettier"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
-  # The Nix language server nvim attaches to .nix buffers (see
-  # home/.config/nvim/lua/plugins/lsp.lua). Unlike this repo's other servers it
-  # is not mason-installed: mason's registry has no nixd at all, and its only
-  # other Nix server, `nil`, is a cargo package that would need a Rust
-  # toolchain on every machine to build from source. nixpkgs ships nixd as a
-  # binary, and a repo that is itself Nix is guaranteed to have Nix.
-  { name = "nixd"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # Rust. `cargo` is load-bearing beyond building Rust: nvim's `nil` and
+  # `statix` (the Nix language server and linter) are mason packages that build
+  # from source with cargo, so dropping this breaks Nix support in nvim.
+  # Nothing installs `rust-analyzer` for us either - LazyVim's lang.rust extra
+  # only mason-installs the debugger.
+  { name = "rustc"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "cargo"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "clippy"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "rustfmt"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "rust-analyzer"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # nvim's Nix linter. LazyVim's lang.nix wires statix into nvim-lint but never
+  # adds it to mason's ensure_installed - unlike its docker and markdown extras,
+  # which do install theirs - so nothing fetches it and nvim-lint reports
+  # "error running statix" on every .nix buffer. nixpkgs has it prebuilt.
+  { name = "statix"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  # CSD3: nvim's `nil` from here, not mason's cargo build (a login node's CPU
+  # watchdog kills it, and mason's dir is per node there). See plugins/nix.lua.
+  { name = "nil"; scope = "basic"; platform = [ "csd3" ]; updatePolicy = "stable"; }
 
   # Blockchain dev tools, installed only when .env has BLOCKCHAIN_DEV=true.
   # foundry is one derivation, four binaries: forge, cast, anvil, chisel.
@@ -107,6 +120,7 @@
   # Stable CLI tooling only personal machines need, but not OS-specific.
   { name = "ffmpeg"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   { name = "lcov"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
+  { name = "tdf"; scope = "personal"; platform = "all"; updatePolicy = "stable"; }
   # nixpkgs ships this under the "libusb1" attribute.
   { name = "libusb"; scope = "personal"; platform = "all"; updatePolicy = "stable"; nixName = "libusb1"; }
 
@@ -116,12 +130,16 @@
   { name = "gcc"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "gnumake"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
   { name = "pkg-config"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
-  # Same convention, same reason: mason installs nvim's basedpyright from PyPI
-  # into a venv, and Ubuntu's system python3 ships without ensurepip, so
+  # Same convention, same reason: mason installs its PyPI-backed packages into
+  # a venv, and Ubuntu's system python3 ships without ensurepip, so
   # `python3 -m venv` fails outright there. macOS gets a working python3 from
   # the Xcode Command Line Tools, so adding one here would only shadow it -
   # environment.systemPackages precedes /usr/bin in the macOS PATH.
   { name = "python3"; scope = "basic"; platform = "ubuntu"; updatePolicy = "stable"; }
+
+  # Not csd3: headless-browser screenshot tooling, a large GUI closure on NFS.
+  { name = "chromium"; scope = "basic"; platform = [ "ubuntu" ]; updatePolicy = "stable"; }
+  { name = "imagemagick"; scope = "basic"; platform = [ "ubuntu" ]; updatePolicy = "stable"; }
 
   # macOS-specific CLI toolchains for this personal Mac (no meaningful
   # Ubuntu equivalent through this same package name/manager).

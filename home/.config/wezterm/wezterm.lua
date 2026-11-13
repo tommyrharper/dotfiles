@@ -42,6 +42,39 @@ config.keys = {
   { key = "k", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Up") },
   { key = "j", mods = "LEADER", action = wezterm.action.ActivatePaneDirection("Down") },
   { key = "x", mods = "LEADER", action = wezterm.action.CloseCurrentPane({ confirm = true }) },
+  -- Pull the current pane out into its own window (tmux break-pane).
+  {
+    key = "n",
+    mods = "LEADER",
+    action = wezterm.action_callback(function(win, pane)
+      pane:move_to_new_window()
+    end),
+  },
+  -- Undo break-pane: merge this pane into the first other window as a new tab.
+  -- No Lua API for cross-window pane moves, so shell out to the wezterm CLI;
+  -- absolute path because the GUI app's PATH may not include it. Must be
+  -- background_child_process, not os.execute: a blocking call here deadlocks
+  -- wezterm (the CLI waits on the same GUI thread the callback is holding).
+  {
+    key = "m",
+    mods = "LEADER",
+    action = wezterm.action_callback(function(win, pane)
+      for _, other in ipairs(wezterm.mux.all_windows()) do
+        if other:window_id() ~= win:window_id() then
+          wezterm.background_child_process({
+            wezterm.executable_dir .. "/wezterm",
+            "cli",
+            "move-pane-to-new-tab",
+            "--pane-id",
+            tostring(pane:pane_id()),
+            "--window-id",
+            tostring(other:window_id()),
+          })
+          return
+        end
+      end
+    end),
+  },
   {
     key = "T",
     mods = "LEADER|SHIFT",
@@ -73,11 +106,15 @@ config.keys = {
   },
   -- AI-fill the Zsh input buffer: sends Ctrl-G, bound in home.nix to ai-fill-buffer.
   { key = "g", mods = "LEADER", action = wezterm.action.SendKey({ key = "g", mods = "CTRL" }) },
-  -- Option+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude agents view).
-  { key = "h", mods = "OPT", action = act.SendString("\x1b[D") },
-  { key = "j", mods = "OPT", action = act.SendString("\x1b[B") },
-  { key = "k", mods = "OPT", action = act.SendString("\x1b[A") },
-  { key = "l", mods = "OPT", action = act.SendString("\x1b[C") },
+  -- Cmd+hjkl sends raw arrow keys, for Vim-style nav in TUI grids (e.g. Claude
+  -- agents view). Cmd rather than Option because macOS never delivers Cmd to
+  -- terminal programs, so this cannot shadow a Neovim mapping - Option did,
+  -- eating LazyVim's Alt+j/Alt+k move-line. The cost is wezterm's own Cmd+h
+  -- (hide app) and Cmd+k (clear scrollback), which these override.
+  { key = "h", mods = "CMD", action = act.SendString("\x1b[D") },
+  { key = "j", mods = "CMD", action = act.SendString("\x1b[B") },
+  { key = "k", mods = "CMD", action = act.SendString("\x1b[A") },
+  { key = "l", mods = "CMD", action = act.SendString("\x1b[C") },
   -- Clear the shell input line without copying it to the kill ring (widget in home.nix).
   { key = "K", mods = "CTRL|SHIFT", action = act.SendString("\x1b[107;6u") },
   -- Option+Left/Right send Esc-b / Esc-f, the readline word-nav sequences.

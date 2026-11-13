@@ -18,9 +18,9 @@ On macOS:
 
 - System settings (dark mode, key repeat, dock, Finder, trackpad)
 - Homebrew apps (casks and CLI tools)
-- Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, Hack Nerd Font, TeX Live)
+- Nix user packages (ripgrep, fd, fzf, jq, lazygit, Neovim, the Rust toolchain, Hack Nerd Font, TeX Live)
 - Shell (zsh, aliases, starship prompt)
-- Neovim and WezTerm, both on the rose-pine moon theme
+- Neovim ([LazyVim](https://www.lazyvim.org/)) and WezTerm, both on the rose-pine moon theme
 - Agent configs (Claude, Codex, opencode all share one AGENTS.md)
 - Optional Pi theme, local extensions, settings/model overrides, and two pinned third-party packages
 
@@ -68,6 +68,14 @@ Edit the config files in place, then apply:
 ```
 
 That's it. No separate build-and-copy step.
+
+To force updates/upgrades:
+```
+cd ~/.dotfiles
+nix flake update            # or: nix flake update nixpkgs to just update nixpkgs
+./rebuild.sh
+brew upgrade                # only if you want fast tools moved too
+```
 
 ## Ubuntu setup
 
@@ -123,6 +131,13 @@ does in a Slurm job (`SLURM_JOB_ID`, `sintr` included), for `scp`/`sftp` or
 bash. Jobs get their tools from modules, containers and `hpc-work` instead
 (ri-reproducibility's `scripts/lib/job-env.sh` checks that nothing a job runs
 resolves into `/home` or a Nix store).
+
+`/home`, and so the Nix store, is NFS: a cold file lookup costs ~4.5 ms. So on
+CSD3 the Nix zsh drops the modules' `LD_LIBRARY_PATH` (`hostlibs cmd` brings it
+back), nvim's data, state and cache live on the node's `/local/$USER` (each
+node installs plugins and mason tools once, after each reboot), compinit trusts
+its dump, starship skips `git_status`, lazy.nvim's update checker is off, and
+nvim's `nil` comes from Nix instead of a mason cargo build.
 
 Login shells share one ssh-agent per login node (`/tmp/ssh-agent-$USER`);
 with `AddKeysToAgent yes` in `~/.ssh/config` the passphrase is asked once per
@@ -337,11 +352,19 @@ To add a skill or plugin, add a `[[capability]]` entry and run `./agent-capabili
 
 ## Notes
 
-The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub. That needs network once; after that it is offline. Neovim keeps italics off and uses a transparent background so it matches the terminal.
+Neovim runs [LazyVim](https://www.lazyvim.org/) as good as stock. `home/.config/nvim` is the LazyVim starter plus `lua/config/options.lua`, `lua/config/keymaps.lua`, and a few plugin specs in `lua/plugins/`. Everything else - picker, explorer, completion, LSP, treesitter, git - is whatever LazyVim ships. The first `nvim` launch bootstraps [lazy.nvim](https://github.com/folke/lazy.nvim) by cloning plugins from GitHub, and `mason` installs the language servers on first non-headless launch; both need network once, and `:Lazy` / `:Mason` are where you watch or retry.
 
-Python gets `basedpyright` and `ruff`, installed by `mason` on first non-headless launch, so `:Mason` is where you watch or retry. Nix gets `nixd`, installed by `tools.nix` instead: mason's registry has no `nixd`, and its only other Nix server (`nil`) is a cargo package needing a Rust toolchain everywhere. So `nixd` needs a `./rebuild.sh`, not a `:Mason` run. Ubuntu also gets Nix's `python3`, because mason installs basedpyright into a venv and Ubuntu's system interpreter ships without `ensurepip`; macOS already has a working one from the Xcode Command Line Tools, and a Nix `python3` would shadow it. All configured in `home/.config/nvim/lua/plugins/lsp.lua`.
+Languages are LazyVim extras, listed in `home/.config/nvim/lazyvim.json` and toggled with `:LazyExtras`: TypeScript, Python, Rust, Nix, Markdown, JSON, YAML, TOML, Git, Docker. Lua needs no extra - `lazydev` and `lua_ls` are LazyVim core.
 
-[conform.nvim](https://github.com/stevearc/conform.nvim) formats on demand, never on save: `<leader>F` formats the buffer with `ruff_format` for python and `prettier` for markdown, yaml, json, html, and css. Formatting rewrites the whole buffer, so on-save would turn a one-line fix in a never-formatted project into hundreds of lines of churn, and `<Esc>` is mapped to `:w` so it would fire constantly. Each formatter reads the edited project's own config; no house style is imposed from here. lua and nix are deliberately unmapped, since `stylua` and `nixfmt` disagree with this repo's hand-formatting wholesale.
+Nix support leans on `tools.nix` twice. LazyVim's `lang.nix` extra uses `nil` as its server, and mason has no prebuilt binary for it, so mason builds it from source with `cargo` - hence the Rust toolchain. Its linter, `statix`, mason never installs at all: the extra wires it into `nvim-lint` but adds nothing to mason's `ensure_installed`, so `tools.nix` supplies it. `rust-analyzer` is there for a related reason: LazyVim's `lang.rust` extra mason-installs only the debugger, never the server. Ubuntu also gets Nix's `python3`, because mason installs its PyPI-backed packages into a venv and Ubuntu's system interpreter ships without `ensurepip`; macOS already has a working one from the Xcode Command Line Tools, and a Nix `python3` would shadow it.
+
+Formatting is on demand, never on save: `vim.g.autoformat = false` in `lua/config/options.lua`, and `<leader>cf` formats the buffer. LazyVim defaults that flag to on, and its extras map `stylua` to lua and `nixfmt` to nix - which means a one-character edit to `home.nix` or any `.lua` file here would come back rewritten wholesale. `<leader>uf` and `<leader>uF` toggle it back on per buffer or globally. `tests/nvim-conform.test.sh` guards this.
+
+Linting is a separate switch - `vim.g.autoformat` governs conform only - and stays automatic for nix, dockerfile and fish. Markdown is the exception: `lua/plugins/lint.lua` turns it off, since `markdownlint-cli2` mostly argues about list indentation. `<leader>cL` runs it on request.
+
+AI chat is LazyVim's `ai.avante` extra (`<leader>a`), defaulting to the `claude-code` ACP provider; `<leader>ap` switches to `codex`. Both run through ACP adapters (`claude-agent-acp`, `codex-acp` in `tools.nix`) on top of the `claude` and `codex` CLI logins, so your Claude and ChatGPT subscriptions are used, not API keys. Log in to each CLI once before first use.
+
+The colorscheme is `rose-pine-moon`, matching `wezterm.lua`, with transparency on so the terminal's own background and opacity show through rather than being painted over. LazyVim ships only tokyonight and catppuccin, so `lua/plugins/colorscheme.lua` is a plain plugin spec; `<leader>uC` previews any of them live.
 
 ## License
 

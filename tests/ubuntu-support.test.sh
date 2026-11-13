@@ -1,128 +1,125 @@
 #!/usr/bin/env bash
 # Ubuntu 22.04 LTS support checks: the Linux homeConfigurations outputs
-# evaluate to real derivations, and adding them left the existing
-# darwinConfigurations.mac output's evaluated derivation byte-for-byte
-# unchanged. The macOS check exists because a past Ubuntu-port attempt
+# evaluate to real derivations, and none of the Linux-only work they carry
+# reaches macOS. The macOS half exists because a past Ubuntu-port attempt
 # broke it by editing lines home.nix shares between platforms (the
 # gitverify alias, the ai-fill-buffer prompt) without gating them per
-# platform - functionally harmless on macOS at runtime, but it still
-# changed the evaluated derivation. See tool-selection.nix and home.nix.
+# platform - harmless on macOS at runtime, but still wrong.
+# See tool-selection.nix and home.nix.
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-# Pinned at the moment Ubuntu support was layered on top of the tools.nix
-# refactor (PR #17, merged as 51fe4b7), then re-pinned after deliberate
-# macOS-affecting changes to shared Home Manager zsh initContent, most recently
-# when the Hetzner alias changed from root to the configured user, then
-# re-pinned again after the fm/dotfiles-ssh-fragment-approach change replaced
-# programs.ssh with fragment symlinks + an Include-prepending activation
-# script in home.nix, then re-pinned again after adding gnhf (platform =
-# "all", updatePolicy = "fast") to tools.nix, which legitimately adds a new
-# Homebrew formula to the macOS config, then re-pinned again after adding the
-# Linux-only enableSshAgentLinger activation script (home.nix): even though
-# its script body is the empty string on Darwin (isDarwin branch), registering
-# the activation entry at all still shifts the generated activation script
-# text, so the drvPath moves even though nothing runs differently on macOS.
-# Re-pinned again after adding installHerdrAgentIntegrations (home.nix): this
-# one runs its `herdr integration install` loop identically on both
-# platforms (herdr is a platform = "all" tool in tools.nix, and the install
-# step behaves the same everywhere), so unlike the Linux-only entries above
-# this deliberately changes real macOS activation behavior, not just the
-# generated script text. Re-pinned again after uv moved from
-# platform = "ubuntu" to platform = "all" in tools.nix, which makes useNix
-# select it for macOS too and so legitimately adds pkgs.uv to
-# configuration.nix's environment.systemPackages (see
-# test_uv_selected_on_both_platforms below).
-# Update this only alongside a deliberate macOS-affecting change; an
-# unexpected mismatch means something meant to be Linux-only leaked into
-# the shared macOS evaluation. Re-pinned again after adding opencode to
-# tools.nix - a real new Homebrew formula in homebrew.brews, so this
-# legitimately changes darwin-system's derivation too. Re-pinned again after
-# adding no-mistakes (platform = "all", updatePolicy = "fast", hasHomebrew =
-# false - it has no Homebrew formula at all): tool-selection.nix's
-# useHomebrew/useNative now also route a hasHomebrew = false tool through the
-# native installer on macOS, so home.nix's installNativeTools activation
-# script (previously gated lib.mkIf (!isDarwin)) now runs unconditionally on
-# both platforms, and home.sessionPath's ~/.local/bin entry is no longer
-# Linux-only either - both legitimately change darwin-system's derivation.
-# Re-pinned again after adding treehouse (platform = "all", updatePolicy =
-# "fast", default hasHomebrew = true): it adds a real new homebrew-core
-# formula to homebrew.brews, and installNativeTools gained a shared
-# `mkdir -p "$HOME/.local/bin"` (treehouse's install.sh picks /usr/local/bin +
-# sudo when that directory does not exist yet), which runs on both platforms.
-# Re-pin again after adding cursor-agent: macOS gets the cursor-cli cask,
-# while Linux gets Cursor's official installer and checks for ~/.local/bin/agent.
-# Re-pin again after adding prettier (platform = "all", updatePolicy =
-# "stable"): a Nix package addition lands in environment.systemPackages on
-# macOS too, so the darwin derivation legitimately changes.
-# Re-pin again after binding Option+arrow word navigation in the shared zsh
-# initContent (home.nix): the bindings are deliberately not platform-gated -
-# the bug they fix is a `herdr --remote` pane on Ubuntu, but the same vi
-# keymap is selected on macOS, so gating them would leave the two shells
-# editing differently. See tests/zsh-word-nav.test.sh.
-# Re-pin again after adding the askcursor/chatcursor zsh aliases (home.nix):
-# shellAliases is shared, not platform-gated, so a new alias legitimately
-# changes the darwin derivation too.
-# Re-pin again after turning askcodex from a shellAlias into a function in the
-# same shared zsh initContent: `codex exec` writes its banner to stderr and
-# only the answer to stdout, and an alias cannot both drop that stderr and
-# still take the prompt as an argument. The noise is identical on both
-# platforms, so the function is deliberately not gated.
-# Re-pin again after adding, then renaming to `ag`, the cursor-agent alias
-# (home.nix): shellAliases is shared, not platform-gated, so a new alias
-# legitimately changes the darwin derivation too. `cu` was the first name and
-# collided with BSD cu(1), the serial dial-out tool already on PATH.
-# Re-pin again after adding the `skim` cask to tools.nix: a macOS-only GUI app
-# lands in homebrew.casks, so the darwin derivation legitimately changes.
-# Re-pin again after adding nixd (platform = "all", updatePolicy = "stable"),
-# the Nix language server nvim attaches to .nix buffers: like prettier and uv
-# above, a Nix package addition lands in environment.systemPackages on macOS
-# too, so the darwin derivation legitimately changes.
-# Re-pin again after adding foundry (forge/cast/anvil/chisel) to tools.nix as a
-# macOS-only personal tool: it lands in homebrew.brews, so the darwin
-# derivation legitimately changes. Ubuntu is untouched - platform = "macos"
-# keeps it out of every Linux list.
-# Re-pin again after adding spec-kit (platform = "all", updatePolicy = "fast",
-# hasHomebrew = false): like no-mistakes it has no Homebrew formula, so it
-# joins installNativeTools on macOS as well as Ubuntu, adding a `uv tool
-# install specify-cli` block to the shared activation script.
-# Re-pin again after flipping foundry to platform = "all": nixpkgs ships
-# forge/cast/anvil/chisel for macOS as well as Linux, so it leaves
-# homebrew.brews for environment.systemPackages on macOS (and joins
-# home.packages on Ubuntu).
-# Re-pin again after moving foundry to scope = "basic" (the Linux dev box runs
-# DOTFILES_SETUP=basic, so a personal-scoped entry never reached it): the mac
-# profile is personal and already had foundry, so its package *set* is
-# byte-for-byte identical - only the tools.nix ordering moved, which reorders
-# environment.systemPackages and so the derivation.
-# Re-pin again after adding zola (static site generator) to tools.nix as a
-# macOS-only personal tool: it lands in homebrew.brews, so the darwin
-# derivation legitimately changes. Ubuntu is untouched - platform = "macos"
-# keeps it out of every Linux list.
-# Re-pin again after adding the BLOCKCHAIN_DEV toggle: foundry, echidna,
-# solc-select, and tenderly moved to scope = "blockchain", which the plain
-# `mac` output (BLOCKCHAIN_DEV=false) no longer installs.
-# Re-pin again after the username moved out of flake.nix into $DOTFILES_USER:
-# the username is interpolated into home.homeDirectory and every path under
-# it, and tests now build as the fixed synthetic lib.sh user rather than
-# whoever the repo owner is. Nothing about the macOS config itself changed -
-# rebuilding this same tree with DOTFILES_USER set to the old literal still
-# produced the previous pin, g3b8k6pi3jk5xgv2jks3wkhsblm5dfmh.
-EXPECTED_DARWIN_DRVPATH="/nix/store/vxr9mli7pbz3yx6mrrph0zmgn261hf9v-darwin-system-26.05.adda04f.drv"
+# macOS isolation. These three checks replace a pinned drvPath of the whole
+# darwin-system derivation. That hash covered everything macOS builds, so
+# every deliberate change - a new tools.nix entry, a new zsh alias - moved it
+# and the constant had to be rewritten in the same commit: ~30 re-pins since
+# the Ubuntu port, none of which caught a leak, and any two PRs in flight
+# conflicted on that one line by construction. The property the pin stood in
+# for is "no Linux-only work reaches macOS", so assert that directly, deriving
+# what counts as Linux-only from tools.nix and from the evaluated config
+# rather than from a snapshot. Adding a tool changes nothing below.
+#
+# mac and mac-basic cover both usePersonalSetup values; the -blockchain
+# profiles differ only in which personal tools are selected, which is a scope
+# question rather than a platform one.
+DARWIN_PROFILES="mac mac-basic"
 
-test_darwin_drvpath_unchanged() {
+test_darwin_excludes_ubuntu_only_tools() {
   if ! command -v nix >/dev/null 2>&1; then
-    echo "skip: nix not found for darwin drvPath check"
+    echo "skip: nix not found for Ubuntu-only tool exclusion check"
     return 0
   fi
-  local drv
-  drv=$(cd "$ROOT" && nix eval --impure --raw .#darwinConfigurations.mac.system.drvPath 2>/dev/null) \
-    || fail "darwinConfigurations.mac.system.drvPath failed to evaluate"
-  [ "$drv" = "$EXPECTED_DARWIN_DRVPATH" ] \
-    || fail "darwinConfigurations.mac's evaluated derivation changed (expected $EXPECTED_DARWIN_DRVPATH, got $drv) - Ubuntu support must never change macOS behavior"
-  pass "darwinConfigurations.mac.system.drvPath is byte-for-byte unchanged by adding Ubuntu support"
+  # The list comes from tools.nix itself, so a new platform = "ubuntu" entry
+  # is covered the day it lands and no tool addition ever edits this test.
+  local ubuntu_only profile system_pkgs home_pkgs brews casks tool
+  ubuntu_only=$(cd "$ROOT" && nix eval --impure --raw --expr "
+    builtins.concatStringsSep \" \" (
+      map (t: t.nixName or t.name)
+        (builtins.filter (t: t.platform == \"ubuntu\") (import $ROOT/tools.nix)))
+  " 2>/dev/null) \
+    || fail "tools.nix failed to evaluate for the Ubuntu-only tool list"
+  [ -n "$ubuntu_only" ] \
+    || fail "tools.nix has no platform = \"ubuntu\" entries left, so this check would pass vacuously - drop it or re-scope it"
+
+  for profile in $DARWIN_PROFILES; do
+    system_pkgs=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${profile}.config.environment.systemPackages" \
+      --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} environment.systemPackages failed to evaluate"
+    home_pkgs=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${profile}.config.home-manager.users.${FLAKE_USER}.home.packages" \
+      --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} home.packages failed to evaluate"
+    brews=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${profile}.config.homebrew.brews" 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} homebrew.brews failed to evaluate"
+    casks=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${profile}.config.homebrew.casks" 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} homebrew.casks failed to evaluate"
+
+    for tool in $ubuntu_only; do
+      assert_not_contains "$system_pkgs" "\"$tool\"" \
+        "darwinConfigurations.${profile} installs $tool, a platform = \"ubuntu\" tool, via environment.systemPackages - tool-selection.nix's isForCurrentPlatform must keep it off macOS"
+      assert_not_contains "$home_pkgs" "\"$tool\"" \
+        "darwinConfigurations.${profile} installs $tool, a platform = \"ubuntu\" tool, via home.packages - tool-selection.nix's isForCurrentPlatform must keep it off macOS"
+      assert_not_contains "$brews" "\"$tool\"" \
+        "darwinConfigurations.${profile} installs $tool, a platform = \"ubuntu\" tool, as a Homebrew formula"
+      assert_not_contains "$casks" "\"$tool\"" \
+        "darwinConfigurations.${profile} installs $tool, a platform = \"ubuntu\" tool, as a Homebrew cask"
+    done
+  done
+
+  pass "no platform = \"ubuntu\" tool reaches any macOS package list"
+}
+
+test_darwin_has_no_systemd_units() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for Darwin systemd unit check"
+    return 0
+  fi
+  # macOS has no systemd at all, so the correct count is zero, not "no docker
+  # unit" - a Linux-only service added without an isDarwin gate shows up here
+  # whatever it is called.
+  local profile units
+  for profile in $DARWIN_PROFILES; do
+    units=$(cd "$ROOT" && nix eval --impure --json ".#darwinConfigurations.${profile}.config.home-manager.users.${FLAKE_USER}.systemd.user.services" \
+      --apply 'builtins.attrNames' 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} systemd.user.services failed to evaluate"
+    [ "$units" = "[]" ] \
+      || fail "darwinConfigurations.${profile} defines systemd user units ($units) - macOS has no systemd, so a Linux-only service leaked past its !isDarwin gate"
+  done
+
+  pass "no systemd user units are defined on macOS"
+}
+
+test_darwin_config_free_of_linux_only_text() {
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "skip: nix not found for Darwin Linux-only text check"
+    return 0
+  fi
+  # The leak this whole file was written for: a line home.nix shares between
+  # platforms that is really Linux-only. Such a line almost always names a
+  # Linux path or a Linux-only command, so scan the macOS-rendered shared
+  # surfaces - zsh init, aliases, activation scripts, session variables - for
+  # those markers. Unlike a pinned derivation hash this says nothing about
+  # macOS-only content, so adding a tool or an alias leaves it alone.
+  local profile text marker
+  local markers=("/home/${FLAKE_USER}" "systemctl" "loginctl" "apt-get" "dockerd-rootless" "rootlesskit" "/run/user/")
+  for profile in $DARWIN_PROFILES; do
+    text=$(cd "$ROOT" && nix eval --impure --raw ".#darwinConfigurations.${profile}.config.home-manager.users.${FLAKE_USER}" \
+      --apply 'c: builtins.concatStringsSep "\n" (
+        [ c.programs.zsh.initContent ]
+        ++ (builtins.attrValues c.programs.zsh.shellAliases)
+        ++ (map (x: x.data) (builtins.attrValues c.home.activation))
+        ++ (map (v: builtins.toString v) (builtins.attrValues c.home.sessionVariables))
+      )' 2>/dev/null) \
+      || fail "darwinConfigurations.${profile} shared Home Manager surfaces failed to evaluate"
+
+    for marker in "${markers[@]}"; do
+      assert_not_contains "$text" "$marker" \
+        "darwinConfigurations.${profile} renders \"$marker\" into its zsh init, aliases, activation scripts or session variables - that is Linux-only content reaching macOS, so gate it per platform in home.nix"
+    done
+  done
+
+  pass "macOS renders none of the Linux-only paths or commands"
 }
 
 test_linux_home_configurations_evaluate() {
@@ -241,6 +238,8 @@ gnhf gnhf
 opencode opencode
 no-mistakes no-mistakes
 treehouse treehouse
+claude-agent-acp claude-agent-acp
+codex-acp codex-acp
 spec-kit specify"
   local expected_dry_run_lines=(
     "Would install claude-code via https://claude.ai/install.sh"
@@ -253,6 +252,8 @@ spec-kit specify"
     "Would install opencode via npm install -g opencode-ai"
     "Would install no-mistakes via https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh"
     "Would install treehouse via https://kunchenguid.github.io/treehouse/install.sh"
+    "Would install claude-agent-acp via npm install -g @agentclientprotocol/claude-agent-acp"
+    "Would install codex-acp via npm install -g @agentclientprotocol/codex-acp"
     "Would install spec-kit via uv tool install specify-cli"
   )
   local system selected data tmp_home dry_run_output path_has_local_bin bin_name expect_line
@@ -271,7 +272,7 @@ spec-kit specify"
     " 2>/dev/null) \
       || fail "tool-selection.nix nativeInstallTools failed to evaluate for $system"
     [ "$selected" = "$expected_name_binname" ] \
-      || fail "tool-selection.nix nativeInstallTools must contain exactly claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's unattended installers (name binName) for $system, got: $selected"
+      || fail "tool-selection.nix nativeInstallTools must contain exactly the expected unattended installers (name binName) for $system, got: $selected"
 
     data=$(cd "$ROOT" && nix eval --impure --raw ".#homeConfigurations.\"${FLAKE_USER}@${system}\".config.home.activation.installNativeTools.data" 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" has no installNativeTools activation script - useNative correctly classifying these tools is not enough, something has to actually install them"
@@ -291,7 +292,7 @@ spec-kit specify"
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" does not put ~/.local/bin (where every native installer here places its binary) on PATH"
 
     mkdir -p "$tmp_home/.local/bin"
-    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse specify; do
+    for bin_name in claude codex agent herdr skills pi gnhf opencode no-mistakes treehouse claude-agent-acp codex-acp specify; do
       touch "$tmp_home/.local/bin/$bin_name"
       chmod +x "$tmp_home/.local/bin/$bin_name"
     done
@@ -300,7 +301,7 @@ spec-kit specify"
     [ -z "$dry_run_output" ] \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" installNativeTools must skip every tool already installed under its real binary name, got: $dry_run_output"
   done
-  pass "claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent, gnhf, opencode, no-mistakes, treehouse, and spec-kit's native installers are all wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
+  pass "every native installer is wired into home.activation, correctly keyed to their real ~/.local/bin binary names, for both Linux homeConfigurations outputs"
 }
 
 test_herdr_integrations_run_after_native_install_on_linux() {
@@ -463,13 +464,10 @@ test_darwin_native_install_only_homebrewless_tools() {
     return 0
   fi
   # installNativeTools now runs on both platforms (no longer gated
-  # lib.mkIf (!isDarwin)): no-mistakes and spec-kit have no Homebrew formula
-  # at all (hasHomebrew = false in tools.nix), so they are the tools that need
-  # the native installer on macOS too. The other nine fast/all tools
-  # (claude-code, codex, cursor-agent, herdr, skills, pi-coding-agent,
-  # gnhf, opencode, treehouse) must
-  # stay exactly where they were - Homebrew-managed on macOS - so this script
-  # must mention those two and nothing else.
+  # lib.mkIf (!isDarwin)): no-mistakes, spec-kit and claude-agent-acp have no
+  # Homebrew formula (hasHomebrew = false in tools.nix), so they need the
+  # native installer on macOS too. Every other fast/all tool stays
+  # Homebrew-managed there, so this script must mention those and nothing else.
   local data brews casks names other_marker
   data=$(cd "$ROOT" && nix eval --impure --raw ".#darwinConfigurations.mac.config.home-manager.users.${FLAKE_USER}.home.activation.installNativeTools.data" 2>/dev/null) \
     || fail "darwinConfigurations.mac has no installNativeTools activation script - no-mistakes (hasHomebrew = false) needs it on macOS too"
@@ -477,6 +475,8 @@ test_darwin_native_install_only_homebrewless_tools() {
     "darwinConfigurations.mac installNativeTools must install no-mistakes (a Homebrew-less fast/all tool)"
   assert_contains "$data" "uv tool install specify-cli" \
     "darwinConfigurations.mac installNativeTools must install spec-kit (a Homebrew-less fast/all tool) via uv"
+  assert_contains "$data" "npm install -g @agentclientprotocol/claude-agent-acp" \
+    "darwinConfigurations.mac installNativeTools must install claude-agent-acp (a Homebrew-less fast/all tool) via npm"
   # Distinctive install commands, not bare tool names: every tool's shared
   # per-block comment text mentions "codex" and "pi-coding-agent" by name
   # regardless of which tool the block is actually for (e.g. the
@@ -491,7 +491,8 @@ test_darwin_native_install_only_homebrewless_tools() {
     "https://pi.dev/install.sh" \
     "npm install -g gnhf" \
     "npm install -g opencode-ai" \
-    "https://kunchenguid.github.io/treehouse/install.sh"
+    "https://kunchenguid.github.io/treehouse/install.sh" \
+    "npm install -g @agentclientprotocol/codex-acp"
   do
     assert_not_contains "$data" "$other_marker" \
       "darwinConfigurations.mac installNativeTools must not also try to natively install the tool behind '$other_marker' - it stays Homebrew-managed on macOS"
@@ -516,6 +517,8 @@ test_darwin_native_install_only_homebrewless_tools() {
   # (asserted above via its install.sh URL in other_marker).
   assert_contains "$brews" "\"treehouse\"" \
     "darwinConfigurations.mac must install treehouse from its real homebrew-core formula, not through the native installer"
+  assert_contains "$brews" "\"codex-acp\"" \
+    "darwinConfigurations.mac must install codex-acp from its homebrew-core formula, not through the native installer"
   assert_contains "$casks" "\"cursor-cli\"" \
     "darwinConfigurations.mac must install Cursor Agent from the cursor-cli Homebrew cask, not through the native installer"
 
@@ -524,7 +527,7 @@ test_darwin_native_install_only_homebrewless_tools() {
   [ "$names" = "true" ] \
     || fail "darwinConfigurations.mac must put ~/.local/bin on PATH so a natively-installed no-mistakes is reachable"
 
-  pass "darwinConfigurations.mac's installNativeTools handles only the Homebrew-less tools (no-mistakes, spec-kit); the other nine fast/all tools stay Homebrew-managed, and neither lands in homebrew.brews/casks"
+  pass "darwinConfigurations.mac's installNativeTools handles only the Homebrew-less tools (no-mistakes, spec-kit, claude-agent-acp); the other fast/all tools stay Homebrew-managed, and none lands in homebrew.brews/casks"
 }
 
 test_linux_ssh_agent_persists() {
@@ -807,7 +810,7 @@ test_python3_linux_only_for_mason() {
     echo "skip: nix not found for python3 selection check"
     return 0
   fi
-  # mason installs nvim's basedpyright from PyPI into a venv, which needs a
+  # mason installs nvim's PyPI-backed packages into a venv, which needs a
   # python3 with ensurepip. Ubuntu's system one has none, so Nix supplies it
   # there. macOS already has a working python3 from the Xcode Command Line
   # Tools - the same arrangement as the gcc/gnumake/pkg-config entries above -
@@ -820,7 +823,7 @@ test_python3_linux_only_for_mason() {
       --apply 'pkgs: map (p: p.pname or p.name) pkgs' 2>/dev/null) \
       || fail "homeConfigurations.\"${FLAKE_USER}@${system}\" home.packages failed to evaluate"
     assert_contains "$names" "\"python3\"" \
-      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing python3 - mason cannot install basedpyright without it"
+      "homeConfigurations.\"${FLAKE_USER}@${system}\" is missing python3 - mason cannot install its PyPI packages without it"
   done
 
   # Unlike the uv check above, this absence is meaningful: environment.systemPackages
@@ -895,7 +898,9 @@ test_darwin_login_shell_untouched() {
   pass "bootstrap.sh's macOS branch leaves the login shell alone"
 }
 
-test_darwin_drvpath_unchanged
+test_darwin_excludes_ubuntu_only_tools
+test_darwin_has_no_systemd_units
+test_darwin_config_free_of_linux_only_text
 test_linux_home_configurations_evaluate
 test_linux_home_manager_cli_enabled
 test_linux_treesitter_buildtools_present
