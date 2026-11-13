@@ -96,7 +96,14 @@ dotfiles_csd3_shell() {
   # CSD3's cuda module exports FPATH (a Fortran include path); zsh would take
   # it as its function path and lose compinit, is-at-least, add-zsh-hook.
   # SHELL: the account's is bash (no chsh here), and herdr panes open $SHELL.
+  # LD_LIBRARY_PATH: the default modules' 15 NFS dirs outrank RUNPATH, so every
+  # exec fails hundreds of NFS lookups first. Slurm, MPI and nvcc run without
+  # it; `hostlibs cmd` runs cmd with it (`module reload` cannot restore it).
   ( unset FPATH; export SHELL="$HOME/.nix-profile/bin/zsh"
+    if [ -n "${LD_LIBRARY_PATH:-}" ]; then
+      export DOTFILES_CSD3_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+      unset LD_LIBRARY_PATH
+    fi
     DOTFILES_CSD3_INSIDE=1 dotfiles_csd3_np nix shell "$profile" -c zsh "$@" )
 }
 

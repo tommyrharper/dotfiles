@@ -284,6 +284,8 @@ in
       # compaudit cannot vet inside nix-portable ("compaudit:142: unknown
       # group"). Every zsh runs the line above itself; nothing needs to inherit it.
       typeset +x FPATH
+      # The module LD_LIBRARY_PATH csd3/nix-portable.sh strips.
+      hostlibs() { LD_LIBRARY_PATH="$DOTFILES_CSD3_LD_LIBRARY_PATH''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$@"; }
       # Targets of csd3NvimLocalDirs' links; gone after a reboot.
       [[ -d ${csd3Local}/nvim/cache ]] || mkdir -p ${csd3Local}/nvim/{share,state,cache}
     '';
