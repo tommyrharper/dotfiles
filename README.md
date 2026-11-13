@@ -118,6 +118,7 @@ breaks Nix, and node-local disks are not shared.
 
 ```bash
 git clone https://github.com/tommyrharper/dotfiles.git ~/dotfiles && cd ~/dotfiles
+git switch csd3
 cp .env.example .env    # then set DOTFILES_SETUP=csd3
 ./bootstrap.sh          # nix-portable, first switch, one line in ~/.bashrc
 ```
