@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ssh-mfa HOST [cmd...]: run cmd (or a shell) on HOST over its shared
+# ControlMaster connection, opening it unattended if it is down. Login
+# prompts are answered from ~/.config/ssh-mfa/<ssh user>/{password,totp}
+# by this same script, rerun as SSH_ASKPASS.
+set -euo pipefail
+
+if [[ -n ${SSH_MFA_CREDS:-} ]]; then
+  shopt -s nocasematch
+  case "${1:-}" in
+    *code*|*totp*|*verification*) oathtool --totp -b "$(cat "$SSH_MFA_CREDS/totp")" ;;
+    *password*) cat "$SSH_MFA_CREDS/password" ;;
+    *) echo "ssh-mfa: unknown prompt: ${1:-}" >&2; exit 1 ;;
+  esac
+  exit
+fi
+
+host=${1:?usage: ssh-mfa HOST [cmd...]}
+shift
+if ! ssh -O check "$host" 2>/dev/null; then
+  user=$(ssh -T -G "$host" | awk '$1 == "user" { print $2 }')
+  SSH_MFA_CREDS="${XDG_CONFIG_HOME:-$HOME/.config}/ssh-mfa/$user" \
+    SSH_ASKPASS="$(realpath "$0")" SSH_ASKPASS_REQUIRE=force \
+    ssh -o LogLevel=error -fN "$host"
+  ssh -O check "$host" 2>/dev/null ||
+    { echo "ssh-mfa: no shared connection - set ControlMaster/ControlPath for $host" >&2; exit 1; }
+fi
+exec ssh -o BatchMode=yes "$host" "$@"
