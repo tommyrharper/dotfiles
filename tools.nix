@@ -74,6 +74,7 @@
   # Stable CLI dev tooling wanted on every machine, personal or not.
   { name = "btop"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "mosh"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
+  { name = "oath-toolkit"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "bzip2"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "gh"; scope = "basic"; platform = "all"; updatePolicy = "stable"; }
   { name = "gnu-tar"; scope = "basic"; platform = "all"; updatePolicy = "stable"; nixName = "gnutar"; }

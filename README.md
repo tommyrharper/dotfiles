@@ -147,6 +147,8 @@ The profile could be a flake output per value because there are only four of the
 
 On a new machine the first switch creates `~/.ssh/config` and wires both `Include` lines automatically. If you used the older `home/.ssh/config.private`, copy its entries across by hand; it is not renamed for you.
 
+**SSH with MFA:** `ssh-mfa HOST [cmd...]` runs a command (or opens a shell) on a password + TOTP host without prompting. If the host's shared connection is down, it logs in using `~/.config/ssh-mfa/<ssh user>/password` and `totp` (the base32 TOTP secret). Keep both files `chmod 600` and outside this repo. The host needs `ControlMaster`/`ControlPath` in `dotfiles.config.private`; see the example there. Run `ssh HOST` by hand once first, to accept its host key.
+
 **Persistent ssh-agent (Linux only):** `home.nix` enables home-manager's `services.ssh-agent`, a `systemd --user` unit that starts on login with `SSH_AUTH_SOCK` wired into zsh. Note *zsh*: that module only injects the socket into shells home-manager manages, which is why `bootstrap.sh` changes your login shell. Systemd lingering keeps the agent and its cached keys alive after the SSH session closes, so with `AddKeysToAgent yes` a passphrase is entered once per boot. macOS gets this for free via launchd and the Keychain.
 
 **Git identity:** deliberately not set here. Git will stop your first commit and tell you to set `user.name` and `user.email`. To manage it declaratively, add to `home.nix`:

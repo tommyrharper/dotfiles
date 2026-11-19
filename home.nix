@@ -331,6 +331,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.config/herdr";
   home.file.".claude/settings.json".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.claude/settings.json";
+  home.file.".local/bin/ssh-mfa".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/.local/bin/ssh-mfa";
 
   # Keep Pi's credential and runtime state local by linking only authored files and directories.
   home.file.".pi/agent/themes".source =
