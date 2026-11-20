@@ -381,9 +381,13 @@ in
         name="''${d##*/}"
         target="${csd3Local}/nvim/''${name#.}"
         $DRY_RUN_CMD mkdir -p "$target" "$HOME/$d"
+        # mv, not rm: files a running nvim holds open become .nfs* files that
+        # rm cannot delete. Leftovers go on a later switch, once nvim is closed.
+        # --remove-destination: a half-done earlier copy left read-only git packs.
         if [ -d "$link" ] && [ ! -L "$link" ]; then
-          $DRY_RUN_CMD cp -a "$link/." "$target/" && $DRY_RUN_CMD rm -rf "$link"
+          $DRY_RUN_CMD cp -a --remove-destination "$link/." "$target/" && $DRY_RUN_CMD mv "$link" "$link.old-$$"
         fi
+        $DRY_RUN_CMD rm -rf "$link".old-* 2>/dev/null || true
         # ln -sfn onto a real directory would link inside it instead.
         if [ -d "$link" ] && [ ! -L "$link" ]; then
           echo "WARNING: $link is still a directory, left on NFS" >&2
