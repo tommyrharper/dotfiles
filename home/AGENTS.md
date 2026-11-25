@@ -22,9 +22,11 @@
   [tool.pyright]
   venvPath = "."
   venv = ".venv"
+  pythonVersion = "3.11"  # match requires-python / .python-version
   ```
 
   Without it pyright (the LSP Neovim uses) type-checks against the system interpreter and reports every third-party import as missing, even though `uv sync` installed it into `.venv`.
+  `venv` only fixes imports: pyright still takes the Python version from `python3` on PATH (macOS 3.9) and flags newer syntax like `int | None`, hence `pythonVersion`.
 - Make your comments and docs as short as possible.
 - Do not comment something in the code that the code explains. Only comment things that you can't tell from the code.
 
