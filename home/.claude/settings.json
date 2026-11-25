@@ -26,7 +26,8 @@
   "enabledPlugins": {
     "skill-codex@skill-codex": true,
     "ponytail@ponytail": true,
-    "caveman@caveman": true
+    "caveman@caveman": true,
+    "pyright-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "skill-codex": {
